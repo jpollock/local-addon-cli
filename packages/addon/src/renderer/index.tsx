@@ -659,6 +659,9 @@ class McpPreferencesPanel extends React.Component<
 
 // Export as a constructor function that Local can instantiate
 module.exports = function McpServerRenderer(context: { hooks: unknown; electron: unknown }): void {
+  // CLI-only mode - preferences panel disabled
+  // To enable MCP preferences UI, uncomment the following:
+  /*
   const { hooks, electron } = context as {
     hooks: { addFilter: (name: string, callback: (items: unknown[]) => unknown[]) => void };
     electron: McpPreferencesPanelProps['electron'];
@@ -683,4 +686,8 @@ module.exports = function McpServerRenderer(context: { hooks: unknown; electron:
   });
 
   console.log('[MCP Server] Renderer setup complete');
+  */
+
+  // Silence unused variable warnings
+  void context;
 };

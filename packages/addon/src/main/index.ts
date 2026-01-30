@@ -3818,12 +3818,12 @@ export default function (_context: LocalMain.AddonMainContext): void {
       capi: services.capi,
     };
 
-    startMcpServer(localServices, localLogger);
+    // MCP server disabled - CLI-only mode
+    // To enable MCP server for AI tool integration, uncomment the following:
+    // startMcpServer(localServices, localLogger);
+    // registerIpcHandlers(localServices, localLogger);
 
-    // Register IPC handlers for renderer
-    registerIpcHandlers(localServices, localLogger);
-
-    localLogger.info(`[${ADDON_NAME}] Successfully initialized`);
+    localLogger.info(`[${ADDON_NAME}] Successfully initialized (CLI-only mode)`);
   } catch (error: any) {
     localLogger.error(`[${ADDON_NAME}] Failed to initialize:`, error);
   }
