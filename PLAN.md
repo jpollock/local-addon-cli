@@ -9,6 +9,21 @@ Implementation plan for RFC-002, building the `lwp` CLI alongside the MCP Server
 **Source Repo:** `local-addon-mcp-server` (copy, don't migrate)
 **Target Repo:** `local-addon-cli-mcp` (this repo)
 
+### Tool Inventory
+
+| Category | Tools | Status |
+|----------|-------|--------|
+| Site Management | 10 | ✅ Implemented |
+| Import/Export | 4 | ✅ Implemented |
+| Development Tools | 7 | ✅ Implemented |
+| Blueprints & System | 3 | ✅ Implemented |
+| Cloud Backups | 7 | ⏳ Not yet implemented |
+| WP Engine Connect | 9 | ⏳ Not yet implemented |
+| **Total** | **40** | **24 ready, 16 pending** |
+
+Phases 2-6 cover the 24 implemented tools.
+Phases 7-8 require addon implementation before CLI work can begin.
+
 ---
 
 ## Phase 0: Project Setup
@@ -312,6 +327,9 @@ Implement zero-friction installation from RFC-002.
 
 ## Phase 7: Cloud Backups
 
+> **⚠️ Prerequisite:** These 7 MCP tools must be implemented in the addon first.
+> They are documented in RFC-002 but not yet coded.
+
 **File:** `packages/cli/src/commands/backups.ts`
 
 | Command | MCP Tool |
@@ -322,17 +340,22 @@ Implement zero-friction installation from RFC-002.
 | `lwp backups restore <site>` | `restore_backup` |
 | `lwp backups delete <site>` | `delete_backup` |
 | `lwp backups download <site>` | `download_backup` |
+| `lwp backups edit-note <site>` | `edit_backup_note` |
 
 **Tasks:**
-- [ ] Implement all backup commands
+- [ ] **Addon:** Implement 7 backup tools in `packages/addon/src/main/mcp/tools/`
+- [ ] Implement all backup CLI commands
 - [ ] Add --provider option (dropbox|googleDrive)
 - [ ] Add --snapshot option for specific backup selection
 - [ ] Add --confirm for destructive operations
-- [ ] Add --note option for create
+- [ ] Add --note option for create and edit-note
 
 ---
 
 ## Phase 8: WP Engine Connect
+
+> **⚠️ Prerequisite:** These 9 MCP tools must be implemented in the addon first.
+> They are documented in RFC-002 but not yet coded.
 
 **File:** `packages/cli/src/commands/wpe.ts`
 
@@ -349,7 +372,8 @@ Implement zero-friction installation from RFC-002.
 | `lwp wpe changes <site>` | `get_site_changes` |
 
 **Tasks:**
-- [ ] Implement all WPE commands
+- [ ] **Addon:** Implement 9 WPE tools in `packages/addon/src/main/mcp/tools/`
+- [ ] Implement all WPE CLI commands
 - [ ] Handle OAuth flow for login
 - [ ] Add --include-db option for push/pull
 - [ ] Add --confirm for push/pull
