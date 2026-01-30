@@ -16,7 +16,7 @@ import { promisify } from 'util';
 import { pipeline } from 'stream/promises';
 import { createWriteStream } from 'fs';
 import * as tar from 'tar';
-import { getLocalPaths, LocalPaths, ADDON_PACKAGE_NAME } from './paths';
+import { getLocalPaths, LocalPaths } from './paths';
 
 const execAsync = promisify(exec);
 
@@ -322,18 +322,12 @@ async function extractTgz(tgzPath: string, destDir: string): Promise<void> {
  */
 function findDevAddonPath(): string | null {
   // Check if we're in the monorepo structure
+  // Works from both lib/bootstrap (compiled) and src/bootstrap (ts-node)
   const cliDir = __dirname;
+  const addonPath = path.resolve(cliDir, '..', '..', '..', 'addon');
 
-  // Try relative path from lib/bootstrap to packages/addon
-  const monorepoPath = path.resolve(cliDir, '..', '..', '..', 'addon');
-  if (fs.existsSync(path.join(monorepoPath, 'package.json'))) {
-    return monorepoPath;
-  }
-
-  // Try from src/bootstrap (dev mode with ts-node)
-  const devPath = path.resolve(cliDir, '..', '..', '..', 'addon');
-  if (fs.existsSync(path.join(devPath, 'package.json'))) {
-    return devPath;
+  if (fs.existsSync(path.join(addonPath, 'package.json'))) {
+    return addonPath;
   }
 
   return null;

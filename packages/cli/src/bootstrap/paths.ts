@@ -75,25 +75,6 @@ export function getLocalPaths(): LocalPaths {
 }
 
 /**
- * Get the addon package name (new name)
+ * Get the addon package name
  */
 export const ADDON_PACKAGE_NAME = '@local-labs/local-addon-cli-mcp';
-
-/**
- * Legacy addon package name (for backwards compatibility)
- */
-export const LEGACY_ADDON_PACKAGE_NAME = '@local-labs/local-addon-mcp-server';
-
-/**
- * Get the addon directory name (scoped package structure)
- */
-export function getAddonDirPath(addonsDir: string): string {
-  // Check for new name first
-  const newPath = path.join(addonsDir, '@local-labs', 'local-addon-cli-mcp');
-  if (require('fs').existsSync(newPath)) {
-    return newPath;
-  }
-
-  // Fall back to legacy name
-  return path.join(addonsDir, '@local-labs', 'local-addon-mcp-server');
-}
