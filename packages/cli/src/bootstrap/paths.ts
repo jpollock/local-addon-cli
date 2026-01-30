@@ -1,5 +1,8 @@
 /**
- * Platform-specific paths for Local and the CLI addon
+ * Platform-specific paths for Local
+ *
+ * The CLI talks directly to Local's GraphQL server - no addon required for basic operations.
+ * The addon extends GraphQL with additional operations (backups, WPE sync, etc.)
  */
 
 import * as os from 'os';
@@ -12,8 +15,8 @@ export interface LocalPaths {
   addonsDir: string;
   /** enabled-addons.json file path */
   enabledAddonsFile: string;
-  /** MCP connection info file path */
-  connectionInfoFile: string;
+  /** GraphQL connection info file path (Local's native GraphQL server) */
+  graphqlConnectionInfoFile: string;
   /** Local application executable path */
   appExecutable: string;
   /** Local application name (for process detection) */
@@ -34,7 +37,7 @@ export function getLocalPaths(): LocalPaths {
         dataDir,
         addonsDir: path.join(dataDir, 'addons'),
         enabledAddonsFile: path.join(dataDir, 'enabled-addons.json'),
-        connectionInfoFile: path.join(dataDir, 'mcp-connection-info.json'),
+        graphqlConnectionInfoFile: path.join(dataDir, 'graphql-connection-info.json'),
         appExecutable: '/Applications/Local.app',
         appName: 'Local',
       };
@@ -48,7 +51,7 @@ export function getLocalPaths(): LocalPaths {
         dataDir,
         addonsDir: path.join(dataDir, 'addons'),
         enabledAddonsFile: path.join(dataDir, 'enabled-addons.json'),
-        connectionInfoFile: path.join(dataDir, 'mcp-connection-info.json'),
+        graphqlConnectionInfoFile: path.join(dataDir, 'graphql-connection-info.json'),
         appExecutable: path.join(programFiles, 'Local', 'Local.exe'),
         appName: 'Local.exe',
       };
@@ -60,7 +63,7 @@ export function getLocalPaths(): LocalPaths {
         dataDir,
         addonsDir: path.join(dataDir, 'addons'),
         enabledAddonsFile: path.join(dataDir, 'enabled-addons.json'),
-        connectionInfoFile: path.join(dataDir, 'mcp-connection-info.json'),
+        graphqlConnectionInfoFile: path.join(dataDir, 'graphql-connection-info.json'),
         appExecutable: '/opt/Local/local',
         appName: 'local',
       };

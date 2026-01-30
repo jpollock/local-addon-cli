@@ -1,6 +1,5 @@
 /**
- * MCP Client exports
+ * Client exports
  */
 
-export { McpClient, McpClientOptions } from './McpClient';
-export { McpToolResult, McpError, createMcpError } from './types';
+export { GraphQLClient, GraphQLClientError, GraphQLError } from './GraphQLClient';

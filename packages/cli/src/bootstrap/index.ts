@@ -1,31 +1,27 @@
 /**
  * Bootstrap System
  *
- * Handles zero-friction installation:
+ * Connects the CLI to Local's GraphQL server:
  * - Detects Local installation
- * - Installs addon if needed
- * - Activates addon if needed
  * - Starts Local if needed
- * - Waits for MCP server to be ready
+ * - Waits for GraphQL server to be ready
+ * - Reads connection info
+ *
+ * Note: The addon extends Local's GraphQL with additional operations
+ * (backups, WPE sync, etc.) but is not required for basic site operations.
  */
 
 import * as fs from 'fs';
-import * as path from 'path';
 import { exec, execSync } from 'child_process';
 import { promisify } from 'util';
-import {
-  getLocalPaths,
-  getAddonDirPath,
-  ADDON_PACKAGE_NAME,
-  LEGACY_ADDON_PACKAGE_NAME,
-  LocalPaths,
-} from './paths';
+import { getLocalPaths, LocalPaths } from './paths';
 
 const execAsync = promisify(exec);
 
 export interface ConnectionInfo {
+  url: string;
+  subscriptionUrl: string;
   port: number;
-  host: string;
   authToken: string;
 }
 
@@ -59,69 +55,6 @@ export function isLocalInstalled(): boolean {
   } catch {
     return false;
   }
-}
-
-/**
- * Check if the addon is installed in Local's addons directory
- */
-export function isAddonInstalled(): boolean {
-  const paths = getLocalPaths();
-  const addonPath = getAddonDirPath(paths.addonsDir);
-
-  return fs.existsSync(addonPath) && fs.existsSync(path.join(addonPath, 'package.json'));
-}
-
-/**
- * Check if the addon is activated in enabled-addons.json
- * Supports both new and legacy package names
- */
-export function isAddonActivated(): boolean {
-  const paths = getLocalPaths();
-
-  try {
-    if (!fs.existsSync(paths.enabledAddonsFile)) {
-      return false;
-    }
-
-    const content = fs.readFileSync(paths.enabledAddonsFile, 'utf-8');
-    const enabledAddons = JSON.parse(content) as Record<string, boolean>;
-
-    // Check for either new or legacy package name
-    return (
-      enabledAddons[ADDON_PACKAGE_NAME] === true ||
-      enabledAddons[LEGACY_ADDON_PACKAGE_NAME] === true
-    );
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Activate the addon by modifying enabled-addons.json
- * Returns true if a restart is needed
- */
-export function activateAddon(): boolean {
-  const paths = getLocalPaths();
-
-  let enabledAddons: Record<string, boolean> = {};
-
-  try {
-    if (fs.existsSync(paths.enabledAddonsFile)) {
-      const content = fs.readFileSync(paths.enabledAddonsFile, 'utf-8');
-      enabledAddons = JSON.parse(content);
-    }
-  } catch {
-    // Start with empty object
-  }
-
-  if (enabledAddons[ADDON_PACKAGE_NAME] === true) {
-    return false; // Already active
-  }
-
-  enabledAddons[ADDON_PACKAGE_NAME] = true;
-  fs.writeFileSync(paths.enabledAddonsFile, JSON.stringify(enabledAddons, null, 2));
-
-  return true; // Restart needed
 }
 
 /**
@@ -162,55 +95,23 @@ export async function startLocal(): Promise<void> {
 }
 
 /**
- * Stop Local application gracefully
- */
-export async function stopLocal(): Promise<void> {
-  const paths = getLocalPaths();
-
-  try {
-    if (process.platform === 'darwin') {
-      await execAsync(`osascript -e 'quit app "Local"'`);
-    } else if (process.platform === 'win32') {
-      await execAsync(`taskkill /IM ${paths.appName}`);
-    } else {
-      await execAsync(`pkill -x ${paths.appName}`);
-    }
-  } catch {
-    // Process may already be stopped
-  }
-}
-
-/**
- * Read connection info from mcp-connection-info.json
+ * Read GraphQL connection info from graphql-connection-info.json
  */
 export function readConnectionInfo(): ConnectionInfo | null {
   const paths = getLocalPaths();
 
   try {
-    if (!fs.existsSync(paths.connectionInfoFile)) {
+    if (!fs.existsSync(paths.graphqlConnectionInfoFile)) {
       return null;
     }
 
-    const content = fs.readFileSync(paths.connectionInfoFile, 'utf-8');
+    const content = fs.readFileSync(paths.graphqlConnectionInfoFile, 'utf-8');
     const info = JSON.parse(content);
 
-    // Parse host and port from URL if available
-    let host = '127.0.0.1';
-    let port = info.port || 5890;
-
-    if (info.url) {
-      try {
-        const url = new URL(info.url);
-        host = url.hostname;
-        port = parseInt(url.port, 10) || port;
-      } catch {
-        // Use defaults
-      }
-    }
-
     return {
-      port,
-      host,
+      url: info.url || `http://127.0.0.1:${info.port}/graphql`,
+      subscriptionUrl: info.subscriptionUrl || `ws://127.0.0.1:${info.port}/graphql`,
+      port: info.port,
       authToken: info.authToken || '',
     };
   } catch {
@@ -219,9 +120,9 @@ export function readConnectionInfo(): ConnectionInfo | null {
 }
 
 /**
- * Wait for MCP server to be ready
+ * Wait for GraphQL server to be ready
  */
-export async function waitForMcpServer(
+export async function waitForGraphQL(
   timeoutMs: number = 30000,
   pollIntervalMs: number = 500
 ): Promise<boolean> {
@@ -232,8 +133,15 @@ export async function waitForMcpServer(
 
     if (connectionInfo) {
       try {
-        const url = `http://${connectionInfo.host}:${connectionInfo.port}/health`;
-        const response = await fetch(url);
+        // Simple introspection query to verify server is responding
+        const response = await fetch(connectionInfo.url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${connectionInfo.authToken}`,
+          },
+          body: JSON.stringify({ query: '{ __typename }' }),
+        });
 
         if (response.ok) {
           return true;
@@ -258,7 +166,7 @@ function delay(ms: number): Promise<void> {
 
 /**
  * Main bootstrap function
- * Ensures Local and the addon are ready for CLI commands
+ * Ensures Local is running and GraphQL is accessible
  */
 export async function bootstrap(options: { verbose?: boolean } = {}): Promise<BootstrapResult> {
   const actions: string[] = [];
@@ -278,52 +186,28 @@ export async function bootstrap(options: { verbose?: boolean } = {}): Promise<Bo
     };
   }
 
-  // Check if addon is installed
-  if (!isAddonInstalled()) {
-    // TODO: Auto-install addon from GitHub releases or npm
-    return {
-      success: false,
-      error: `Addon not installed. Please install ${ADDON_PACKAGE_NAME} in Local's addons directory.`,
-      actions,
-    };
-  }
-
-  // Check if addon is activated
-  let needsRestart = false;
-  if (!isAddonActivated()) {
-    log('Activating addon...');
-    needsRestart = activateAddon();
-    log('Addon activated.');
-  }
-
   // Check if Local is running
   const running = await isLocalRunning();
 
-  if (needsRestart && running) {
-    log('Restarting Local to load addon...');
-    await stopLocal();
-    await delay(2000);
-    await startLocal();
-    log('Local restarted.');
-  } else if (!running) {
+  if (!running) {
     log('Starting Local...');
     await startLocal();
     log('Local started.');
   }
 
-  // Wait for MCP server
-  log('Waiting for MCP server...');
-  const ready = await waitForMcpServer();
+  // Wait for GraphQL server
+  log('Waiting for Local GraphQL server...');
+  const ready = await waitForGraphQL();
 
   if (!ready) {
     return {
       success: false,
-      error: 'Timed out waiting for MCP server. Is Local running with the addon enabled?',
+      error: 'Timed out waiting for Local. Is Local running?',
       actions,
     };
   }
 
-  log('MCP server ready.');
+  log('GraphQL server ready.');
 
   // Read connection info
   const connectionInfo = readConnectionInfo();
@@ -331,7 +215,7 @@ export async function bootstrap(options: { verbose?: boolean } = {}): Promise<Bo
   if (!connectionInfo) {
     return {
       success: false,
-      error: 'Could not read connection info. Is the addon running?',
+      error: 'Could not read GraphQL connection info.',
       actions,
     };
   }
