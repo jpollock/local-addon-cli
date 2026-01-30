@@ -47,13 +47,15 @@
     "chalk": "^4.1.2",
     "cli-table3": "^0.6.5",
     "commander": "^12.1.0",
-    "ora": "^5.4.1"
+    "ora": "^5.4.1",
+    "tar": "^7.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.28.6",
     "@babel/preset-env": "^7.28.6",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.0.0",
+    "@types/tar": "^6.1.11",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "babel-jest": "^30.2.0",

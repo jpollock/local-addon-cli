@@ -15,6 +15,7 @@ import { exec, execSync } from 'child_process';
 import { promisify } from 'util';
 import { pipeline } from 'stream/promises';
 import { createWriteStream } from 'fs';
+import * as tar from 'tar';
 import { getLocalPaths, LocalPaths, ADDON_PACKAGE_NAME } from './paths';
 
 const execAsync = promisify(exec);
@@ -275,6 +276,7 @@ async function downloadFile(url: string, dest: string): Promise<void> {
 
 /**
  * Extract a .tgz file to a directory
+ * Uses Node.js tar library to avoid command injection vulnerabilities
  */
 async function extractTgz(tgzPath: string, destDir: string): Promise<void> {
   // Create destination directory
@@ -282,8 +284,12 @@ async function extractTgz(tgzPath: string, destDir: string): Promise<void> {
     fs.mkdirSync(destDir, { recursive: true });
   }
 
-  // Use tar to extract (available on macOS, Linux, and Windows with Git)
-  await execAsync(`tar -xzf "${tgzPath}" -C "${destDir}" --strip-components=1`);
+  // Use Node.js tar library (no shell execution, no command injection risk)
+  await tar.extract({
+    file: tgzPath,
+    cwd: destDir,
+    strip: 1,
+  });
 }
 
 /**

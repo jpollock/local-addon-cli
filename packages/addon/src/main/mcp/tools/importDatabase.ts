@@ -4,7 +4,7 @@
  */
 
 import { McpToolDefinition, McpToolResult, LocalServices } from '../../../common/types';
-import { findSite } from './helpers';
+import { findSite, isValidSqlPath } from './helpers';
 import * as fs from 'fs';
 
 export const importDatabaseDefinition: McpToolDefinition = {
@@ -47,6 +47,19 @@ export async function importDatabase(
   if (!sqlPath) {
     return {
       content: [{ type: 'text', text: 'Error: sqlPath parameter is required' }],
+      isError: true,
+    };
+  }
+
+  // Security: Validate path is safe (no path traversal attacks)
+  if (!isValidSqlPath(sqlPath)) {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: 'Error: Invalid SQL file path. Path must end in .sql and be within allowed directories (home, tmp).',
+        },
+      ],
       isError: true,
     };
   }

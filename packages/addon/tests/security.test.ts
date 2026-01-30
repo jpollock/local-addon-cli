@@ -3,11 +3,18 @@
  *
  * Tests for:
  * - HIGH-1: confirm requirement for pull_from_wpe
- * - HIGH-2: WP-CLI command blocklist
+ * - HIGH-2: WP-CLI command blocklist (now uses production helpers)
  * - MEDIUM-2: Snapshot ID format validation
- * - MEDIUM-3: SQL path traversal protection
+ * - MEDIUM-3: SQL path traversal protection (now uses production helpers)
  * - PERF-4: Timeout handling
  */
+
+import {
+  isBlockedWpCommand,
+  BLOCKED_WP_COMMANDS,
+  isValidSqlPath,
+  isValidFilePath,
+} from '../src/main/mcp/tools/helpers';
 
 describe('Security Features', () => {
   describe('isValidSnapshotId', () => {
@@ -60,22 +67,16 @@ describe('Security Features', () => {
     });
   });
 
-  describe('isValidSqlPath', () => {
-    // Extracted logic from bin/mcp-stdio.js for testing
-    // Note: In actual implementation, fs.existsSync is called, but we test the logic here
-    const isValidSqlPath = (sqlPath: string | null | undefined): boolean => {
-      if (!sqlPath || typeof sqlPath !== 'string') return false;
-      const path = require('path');
-      const resolvedPath = path.resolve(sqlPath);
-      // Check path doesn't contain traversal and ends with .sql
-      // Note: We don't test fs.existsSync here, that's an integration test
-      return resolvedPath.endsWith('.sql') && !sqlPath.includes('..');
-    };
+  describe('isValidSqlPath (Production Implementation)', () => {
+    // Using production isValidSqlPath from helpers.ts
+    // Production function checks: ends with .sql AND path is in allowed directory (home, tmp)
+    const os = require('os');
+    const homeDir = os.homedir();
 
-    it('should accept valid .sql file paths', () => {
+    it('should accept valid .sql file paths in allowed directories', () => {
       expect(isValidSqlPath('/tmp/backup.sql')).toBe(true);
-      expect(isValidSqlPath('./database.sql')).toBe(true);
-      expect(isValidSqlPath('C:\\Users\\test\\backup.sql')).toBe(true);
+      expect(isValidSqlPath(`${homeDir}/backup.sql`)).toBe(true);
+      expect(isValidSqlPath(`${homeDir}/Downloads/database.sql`)).toBe(true);
     });
 
     it('should reject non-.sql files', () => {
@@ -84,10 +85,10 @@ describe('Security Features', () => {
       expect(isValidSqlPath('/tmp/backup')).toBe(false);
     });
 
-    it('should reject path traversal attempts', () => {
-      expect(isValidSqlPath('../../../etc/passwd.sql')).toBe(false);
-      expect(isValidSqlPath('/tmp/../../../etc/passwd.sql')).toBe(false);
-      expect(isValidSqlPath('..\\..\\windows\\system32.sql')).toBe(false);
+    it('should reject paths outside allowed directories', () => {
+      // Even if they end in .sql, paths outside home/tmp are rejected
+      expect(isValidSqlPath('/etc/passwd.sql')).toBe(false);
+      expect(isValidSqlPath('/var/log/test.sql')).toBe(false);
     });
 
     it('should reject null, undefined, and empty strings', () => {
@@ -97,58 +98,71 @@ describe('Security Features', () => {
     });
   });
 
-  describe('WP-CLI Command Blocklist', () => {
-    const BLOCKED_WP_COMMANDS = [
-      'eval',
-      'eval-file',
-      'shell',
-      'db query',
-      'db cli',
-    ];
+  describe('isValidFilePath (Production Implementation)', () => {
+    // Using production isValidFilePath from helpers.ts
+    const os = require('os');
+    const homeDir = os.homedir();
 
-    const isBlockedCommand = (command: string[]): string | null => {
-      const commandStr = command.join(' ').toLowerCase();
-      for (const blocked of BLOCKED_WP_COMMANDS) {
-        if (commandStr.includes(blocked)) {
-          return blocked;
-        }
-      }
-      return null;
-    };
+    it('should accept paths in home directory', () => {
+      expect(isValidFilePath(`${homeDir}/test.zip`)).toBe(true);
+      expect(isValidFilePath(`${homeDir}/Downloads/site.zip`)).toBe(true);
+    });
+
+    it('should accept paths in tmp directory', () => {
+      expect(isValidFilePath('/tmp/test.zip')).toBe(true);
+      expect(isValidFilePath('/tmp/subdir/test.zip')).toBe(true);
+    });
+
+    it('should reject paths outside allowed directories', () => {
+      expect(isValidFilePath('/etc/passwd')).toBe(false);
+      expect(isValidFilePath('/var/log/test.log')).toBe(false);
+      expect(isValidFilePath('/usr/bin/dangerous')).toBe(false);
+    });
+  });
+
+  describe('WP-CLI Command Blocklist (Production Implementation)', () => {
+    // Using production isBlockedWpCommand from helpers.ts
+
+    it('should have blocked commands defined', () => {
+      expect(BLOCKED_WP_COMMANDS).toContain('eval');
+      expect(BLOCKED_WP_COMMANDS).toContain('shell');
+      expect(BLOCKED_WP_COMMANDS).toContain('db query');
+      expect(BLOCKED_WP_COMMANDS).toContain('db cli');
+    });
 
     it('should block eval command', () => {
-      expect(isBlockedCommand(['eval', 'echo "hello";'])).toBe('eval');
-      expect(isBlockedCommand(['wp', 'eval', '"echo 1;"'])).toBe('eval');
+      expect(isBlockedWpCommand(['eval', 'echo "hello";'])).toBe('eval');
+      expect(isBlockedWpCommand(['wp', 'eval', '"echo 1;"'])).toBe('eval');
     });
 
     it('should block eval-file command', () => {
       // Note: 'eval-file' matches 'eval' first, which is fine - it's still blocked
-      expect(isBlockedCommand(['eval-file', '/tmp/evil.php'])).toBe('eval');
+      expect(isBlockedWpCommand(['eval-file', '/tmp/evil.php'])).toBe('eval');
     });
 
     it('should block shell command', () => {
-      expect(isBlockedCommand(['shell'])).toBe('shell');
+      expect(isBlockedWpCommand(['shell'])).toBe('shell');
     });
 
     it('should block db query command', () => {
-      expect(isBlockedCommand(['db', 'query', 'SELECT * FROM users'])).toBe('db query');
+      expect(isBlockedWpCommand(['db', 'query', 'SELECT * FROM users'])).toBe('db query');
     });
 
     it('should block db cli command', () => {
-      expect(isBlockedCommand(['db', 'cli'])).toBe('db cli');
+      expect(isBlockedWpCommand(['db', 'cli'])).toBe('db cli');
     });
 
     it('should allow safe commands', () => {
-      expect(isBlockedCommand(['plugin', 'list'])).toBeNull();
-      expect(isBlockedCommand(['user', 'list'])).toBeNull();
-      expect(isBlockedCommand(['cache', 'flush'])).toBeNull();
-      expect(isBlockedCommand(['db', 'export', '/tmp/backup.sql'])).toBeNull();
-      expect(isBlockedCommand(['db', 'import', '/tmp/backup.sql'])).toBeNull();
+      expect(isBlockedWpCommand(['plugin', 'list'])).toBeNull();
+      expect(isBlockedWpCommand(['user', 'list'])).toBeNull();
+      expect(isBlockedWpCommand(['cache', 'flush'])).toBeNull();
+      expect(isBlockedWpCommand(['db', 'export', '/tmp/backup.sql'])).toBeNull();
+      expect(isBlockedWpCommand(['db', 'import', '/tmp/backup.sql'])).toBeNull();
     });
 
     it('should block case-insensitive', () => {
-      expect(isBlockedCommand(['EVAL', 'code'])).toBe('eval');
-      expect(isBlockedCommand(['DB', 'QUERY', 'sql'])).toBe('db query');
+      expect(isBlockedWpCommand(['EVAL', 'code'])).toBe('eval');
+      expect(isBlockedWpCommand(['DB', 'QUERY', 'sql'])).toBe('db query');
     });
   });
 

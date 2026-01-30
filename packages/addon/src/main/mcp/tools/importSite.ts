@@ -4,6 +4,7 @@
  */
 
 import { McpToolDefinition, McpToolResult, LocalServices } from '../../../common/types';
+import { isValidFilePath } from './helpers';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -40,6 +41,19 @@ export async function importSite(
   if (!zipPath) {
     return {
       content: [{ type: 'text', text: 'Error: zipPath parameter is required' }],
+      isError: true,
+    };
+  }
+
+  // Security: Validate path is safe (no path traversal attacks)
+  if (!isValidFilePath(zipPath)) {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: 'Error: Invalid zip file path. Path must be within allowed directories (home, tmp).',
+        },
+      ],
       isError: true,
     };
   }

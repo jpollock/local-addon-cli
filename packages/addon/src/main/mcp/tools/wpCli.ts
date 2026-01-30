@@ -4,7 +4,7 @@
  */
 
 import { McpToolDefinition, McpToolResult, LocalServices } from '../../../common/types';
-import { findSite } from './helpers';
+import { findSite, isBlockedWpCommand } from './helpers';
 
 export const wpCliDefinition: McpToolDefinition = {
   name: 'wp_cli',
@@ -91,6 +91,20 @@ export async function wpCli(
         {
           type: 'text',
           text: 'Error: command cannot be empty',
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  // Security: Check for blocked commands
+  const blockedCommand = isBlockedWpCommand(command);
+  if (blockedCommand) {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Error: Command "${blockedCommand}" is blocked for security reasons. This command could allow arbitrary code execution.`,
         },
       ],
       isError: true,

@@ -4,7 +4,7 @@
  */
 
 import { McpToolDefinition, McpToolResult, LocalServices } from '../../../common/types';
-import { findSite } from './helpers';
+import { findSite, isValidFilePath } from './helpers';
 
 export const exportDatabaseDefinition: McpToolDefinition = {
   name: 'export_database',
@@ -64,6 +64,19 @@ export async function exportDatabase(
     const homeDir = process.env.HOME || process.env.USERPROFILE || '';
     const defaultPath = `${homeDir}/Downloads/${site.name.replace(/[^a-zA-Z0-9-_]/g, '-')}.sql`;
     const finalPath = outputPath || defaultPath;
+
+    // Security: Validate output path is safe (no path traversal attacks)
+    if (!isValidFilePath(finalPath)) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: 'Error: Invalid output path. Path must be within allowed directories (home, tmp).',
+          },
+        ],
+        isError: true,
+      };
+    }
 
     // Run WP-CLI db export
     const result = await services.wpCli.run(site, ['db', 'export', finalPath]);
