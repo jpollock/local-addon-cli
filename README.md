@@ -8,7 +8,7 @@ Command-line interface for [Local](https://localwp.com) WordPress development.
 ## Installation
 
 ```bash
-npm install -g @local-labs/local-cli
+npm install -g @local-labs-jpollock/local-cli
 ```
 
 ## Quick Start

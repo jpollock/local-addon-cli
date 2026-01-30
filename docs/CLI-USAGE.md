@@ -20,7 +20,7 @@ Complete command reference for the Local CLI (`lwp`).
 ## Installation
 
 ```bash
-npm install -g @local-labs/local-cli
+npm install -g @local-labs-jpollock/local-cli
 ```
 
 After installation, the `lwp` command is available globally.

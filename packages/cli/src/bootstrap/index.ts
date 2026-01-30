@@ -142,7 +142,7 @@ const ADDON_DIR_NAME = '@local-labs-local-addon-cli';
 /**
  * Addon key in enabled-addons.json (package name)
  */
-const ADDON_ENABLED_KEY = '@local-labs/local-addon-cli';
+const ADDON_ENABLED_KEY = '@local-labs-jpollock/local-addon-cli';
 
 /**
  * Get the addon installation path

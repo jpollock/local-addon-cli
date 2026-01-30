@@ -1,5 +1,5 @@
 {
-  "name": "@local-labs/local-cli",
+  "name": "@local-labs-jpollock/local-cli",
   "version": "0.0.1",
   "description": "Command-line interface for Local WordPress development",
   "main": "lib/index.js",

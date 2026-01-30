@@ -1,5 +1,5 @@
 {
-  "name": "@local-labs/local-addon-cli",
+  "name": "@local-labs-jpollock/local-addon-cli",
   "version": "0.0.1",
   "private": true,
   "description": "Command-line interface for Local WordPress development",

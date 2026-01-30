@@ -119,7 +119,7 @@ function disableAddon(): void {
       enabledAddons = JSON.parse(content);
     }
     // Remove the addon key
-    delete enabledAddons['@local-labs/local-addon-cli'];
+    delete enabledAddons['@local-labs-jpollock/local-addon-cli'];
     fs.writeFileSync(paths.enabledAddonsFile, JSON.stringify(enabledAddons, null, 2));
   } catch {
     // Ignore errors
@@ -164,7 +164,7 @@ describeIfLocal('addon auto-install', () => {
 
   describe('isAddonActivated', () => {
     test('returns true when addon is in enabled-addons.json', () => {
-      if (!originalEnabledAddons?.['@local-labs/local-addon-cli']) {
+      if (!originalEnabledAddons?.['@local-labs-jpollock/local-addon-cli']) {
         console.log('Skipping: addon was not originally enabled');
         return;
       }
@@ -246,7 +246,7 @@ describeIfLocal('addon auto-install', () => {
     }, 30000);
 
     test('returns needsRestart=false when addon already installed and activated', async () => {
-      if (!originalAddonPath || !originalEnabledAddons?.['@local-labs/local-addon-cli']) {
+      if (!originalAddonPath || !originalEnabledAddons?.['@local-labs-jpollock/local-addon-cli']) {
         console.log('Skipping: addon was not originally installed/enabled');
         return;
       }
