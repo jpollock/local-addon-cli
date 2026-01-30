@@ -80,15 +80,17 @@ export async function isLocalRunning(): Promise<boolean> {
 }
 
 /**
- * Start Local application
+ * Start Local application (minimized/background)
  */
 export async function startLocal(): Promise<void> {
   const paths = getLocalPaths();
 
   if (process.platform === 'darwin') {
-    await execAsync(`open -a "Local"`);
+    // -g = don't bring to foreground, --hide = start hidden
+    await execAsync(`open -g -a "Local"`);
   } else if (process.platform === 'win32') {
-    await execAsync(`start "" "${paths.appExecutable}"`);
+    // /MIN = start minimized
+    await execAsync(`start /MIN "" "${paths.appExecutable}"`);
   } else {
     await execAsync(`${paths.appExecutable} &`);
   }
