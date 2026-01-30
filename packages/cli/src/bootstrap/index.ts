@@ -86,11 +86,8 @@ export async function startLocal(): Promise<void> {
   const paths = getLocalPaths();
 
   if (process.platform === 'darwin') {
-    // Use AppleScript to launch hidden and immediately hide
-    await execAsync(`
-      osascript -e 'tell application "Local" to launch' \
-                -e 'tell application "System Events" to set visible of process "Local" to false'
-    `);
+    // Activate Local, wait for window, then hide it
+    await execAsync(`osascript -e 'activate application "Local"' -e 'delay 1' -e 'tell application "System Events" to set visible of process "Local" to false'`);
   } else if (process.platform === 'win32') {
     // /MIN = start minimized
     await execAsync(`start /MIN "" "${paths.appExecutable}"`);
