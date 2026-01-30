@@ -60,6 +60,38 @@ async function ensureConnected(options: FormatterOptions): Promise<GraphQLClient
   }
 }
 
+/**
+ * Helper to run site-specific commands with common boilerplate
+ *
+ * Handles: connection, spinner, site lookup, error formatting
+ */
+async function runSiteCommand<T>(
+  siteName: string,
+  config: {
+    action: string;
+    successMessage?: (result: T) => string;
+  },
+  execute: (gql: GraphQLClient, siteId: string) => Promise<T>
+): Promise<void> {
+  const globalOpts = program.opts() as FormatterOptions;
+  const spinner = globalOpts.quiet ? null : ora(`${config.action} "${siteName}"...`).start();
+
+  try {
+    const gql = await ensureConnected(globalOpts);
+    const siteId = await findSiteId(gql, siteName);
+    const result = await execute(gql, siteId);
+
+    const message = config.successMessage
+      ? config.successMessage(result)
+      : `${config.action} "${siteName}" completed`;
+    spinner?.succeed(message);
+  } catch (error: any) {
+    spinner?.fail(`Failed to ${config.action.toLowerCase()} "${siteName}"`);
+    console.error(formatError(error.message));
+    process.exit(1);
+  }
+}
+
 program
   .name('lwp')
   .description('Command-line interface for Local WordPress development')
@@ -179,75 +211,27 @@ sites
   .command('start <site>')
   .description('Start a site')
   .action(async (site) => {
-    const globalOpts = program.opts() as FormatterOptions;
-    const spinner = globalOpts.quiet ? null : ora(`Starting "${site}"...`).start();
-
-    try {
-      const gql = await ensureConnected(globalOpts);
-      const siteId = await findSiteId(gql, site);
-
-      await gql.mutate(`
-        mutation($id: ID!) {
-          startSite(id: $id) { id status }
-        }
-      `, { id: siteId });
-
-      spinner?.succeed(`Started "${site}"`);
-    } catch (error: any) {
-      spinner?.fail(`Failed to start "${site}"`);
-      console.error(formatError(error.message));
-      process.exit(1);
-    }
+    await runSiteCommand(site, { action: 'Starting', successMessage: () => `Started "${site}"` }, async (gql, siteId) => {
+      return gql.mutate(`mutation($id: ID!) { startSite(id: $id) { id status } }`, { id: siteId });
+    });
   });
 
 sites
   .command('stop <site>')
   .description('Stop a site')
   .action(async (site) => {
-    const globalOpts = program.opts() as FormatterOptions;
-    const spinner = globalOpts.quiet ? null : ora(`Stopping "${site}"...`).start();
-
-    try {
-      const gql = await ensureConnected(globalOpts);
-      const siteId = await findSiteId(gql, site);
-
-      await gql.mutate(`
-        mutation($id: ID!) {
-          stopSite(id: $id) { id status }
-        }
-      `, { id: siteId });
-
-      spinner?.succeed(`Stopped "${site}"`);
-    } catch (error: any) {
-      spinner?.fail(`Failed to stop "${site}"`);
-      console.error(formatError(error.message));
-      process.exit(1);
-    }
+    await runSiteCommand(site, { action: 'Stopping', successMessage: () => `Stopped "${site}"` }, async (gql, siteId) => {
+      return gql.mutate(`mutation($id: ID!) { stopSite(id: $id) { id status } }`, { id: siteId });
+    });
   });
 
 sites
   .command('restart <site>')
   .description('Restart a site')
   .action(async (site) => {
-    const globalOpts = program.opts() as FormatterOptions;
-    const spinner = globalOpts.quiet ? null : ora(`Restarting "${site}"...`).start();
-
-    try {
-      const gql = await ensureConnected(globalOpts);
-      const siteId = await findSiteId(gql, site);
-
-      await gql.mutate(`
-        mutation($id: ID!) {
-          restartSite(id: $id) { id status }
-        }
-      `, { id: siteId });
-
-      spinner?.succeed(`Restarted "${site}"`);
-    } catch (error: any) {
-      spinner?.fail(`Failed to restart "${site}"`);
-      console.error(formatError(error.message));
-      process.exit(1);
-    }
+    await runSiteCommand(site, { action: 'Restarting', successMessage: () => `Restarted "${site}"` }, async (gql, siteId) => {
+      return gql.mutate(`mutation($id: ID!) { restartSite(id: $id) { id status } }`, { id: siteId });
+    });
   });
 
 sites
