@@ -1510,14 +1510,33 @@ wpe
 
 /**
  * Find site ID by name or ID
+ *
+ * Optimization: First tries direct ID lookup (O(1)) before falling back to
+ * fetching all sites for name matching (O(n)). This significantly improves
+ * performance when users specify site IDs directly.
  */
 async function findSiteId(gql: GraphQLClient, siteQuery: string): Promise<string> {
+  // Try direct ID lookup first - much faster for exact ID matches
+  try {
+    const directLookup = await gql.query<{ site: { id: string } | null }>(
+      `query GetSiteById($id: ID!) { site(id: $id) { id } }`,
+      { id: siteQuery }
+    );
+
+    if (directLookup.site) {
+      return directLookup.site.id;
+    }
+  } catch {
+    // ID lookup failed, fall through to name search
+  }
+
+  // Fall back to fetching all sites for name matching
   const data = await gql.query<{ sites: Array<{ id: string; name: string }> }>(`
     query { sites { id name } }
   `);
 
   const site = data.sites.find(
-    (s) => s.id === siteQuery || s.name.toLowerCase().includes(siteQuery.toLowerCase())
+    (s) => s.name.toLowerCase().includes(siteQuery.toLowerCase())
   );
 
   if (!site) {
