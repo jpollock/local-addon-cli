@@ -80,14 +80,17 @@ export async function isLocalRunning(): Promise<boolean> {
 }
 
 /**
- * Start Local application (minimized/background)
+ * Start Local application (hidden/background)
  */
 export async function startLocal(): Promise<void> {
   const paths = getLocalPaths();
 
   if (process.platform === 'darwin') {
-    // -g = don't bring to foreground, --hide = start hidden
-    await execAsync(`open -g -a "Local"`);
+    // Use AppleScript to launch hidden and immediately hide
+    await execAsync(`
+      osascript -e 'tell application "Local" to launch' \
+                -e 'tell application "System Events" to set visible of process "Local" to false'
+    `);
   } else if (process.platform === 'win32') {
     // /MIN = start minimized
     await execAsync(`start /MIN "" "${paths.appExecutable}"`);
@@ -176,12 +179,18 @@ function delay(ms: number): Promise<void> {
  * Main bootstrap function
  * Ensures Local is running and GraphQL is accessible
  */
-export async function bootstrap(options: { verbose?: boolean } = {}): Promise<BootstrapResult> {
+export async function bootstrap(options: {
+  verbose?: boolean;
+  onStatus?: (status: string) => void;
+} = {}): Promise<BootstrapResult> {
   const actions: string[] = [];
   const log = (msg: string) => {
     actions.push(msg);
     if (options.verbose) {
       console.log(msg);
+    }
+    if (options.onStatus) {
+      options.onStatus(msg);
     }
   };
 
@@ -200,11 +209,10 @@ export async function bootstrap(options: { verbose?: boolean } = {}): Promise<Bo
   if (!running) {
     log('Starting Local...');
     await startLocal();
-    log('Local started.');
   }
 
   // Wait for GraphQL server
-  log('Waiting for Local GraphQL server...');
+  log('Waiting for GraphQL...');
   const ready = await waitForGraphQL();
 
   if (!ready) {

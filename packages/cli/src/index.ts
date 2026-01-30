@@ -37,7 +37,12 @@ async function ensureConnected(options: FormatterOptions): Promise<GraphQLClient
   const spinner = options.quiet ? null : ora('Connecting to Local...').start();
 
   try {
-    const result = await bootstrap({ verbose: false });
+    const result = await bootstrap({
+      verbose: false,
+      onStatus: (status) => {
+        if (spinner) spinner.text = status;
+      },
+    });
 
     if (!result.success || !result.connectionInfo) {
       spinner?.fail('Failed to connect');
