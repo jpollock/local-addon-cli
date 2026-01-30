@@ -133,7 +133,10 @@ export async function waitForGraphQL(
 
     if (connectionInfo) {
       try {
-        // Simple introspection query to verify server is responding
+        // Use AbortController for per-request timeout (2 seconds)
+        const controller = new AbortController();
+        const requestTimeout = setTimeout(() => controller.abort(), 2000);
+
         const response = await fetch(connectionInfo.url, {
           method: 'POST',
           headers: {
@@ -141,13 +144,16 @@ export async function waitForGraphQL(
             Authorization: `Bearer ${connectionInfo.authToken}`,
           },
           body: JSON.stringify({ query: '{ __typename }' }),
+          signal: controller.signal,
         });
+
+        clearTimeout(requestTimeout);
 
         if (response.ok) {
           return true;
         }
       } catch {
-        // Server not ready yet
+        // Server not ready yet - connection refused, timeout, etc.
       }
     }
 

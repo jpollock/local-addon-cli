@@ -16,6 +16,7 @@ export const MCP_ENDPOINTS = {
   SSE: '/mcp/sse',
   MESSAGES: '/mcp/messages',
   HEALTH: '/health',
+  GRAPHQL: '/graphql',
 } as const;
 
 export const CONNECTION_INFO_FILENAME = 'mcp-connection-info.json';
