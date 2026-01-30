@@ -4,7 +4,7 @@
  */
 
 import { McpToolDefinition, McpToolResult, LocalServices } from '../../../common/types';
-import { findSite } from './helpers';
+import { validateRequiredParam, findSiteOrError } from './helpers';
 
 export const startSiteDefinition: McpToolDefinition = {
   name: 'start_site',
@@ -31,30 +31,16 @@ export async function startSite(
 ): Promise<McpToolResult> {
   const { site: siteQuery } = args as unknown as StartSiteArgs;
 
-  if (!siteQuery) {
-    return {
-      content: [{ type: 'text', text: 'Error: site parameter is required' }],
-      isError: true,
-    };
-  }
+  // Validate required parameter
+  const paramError = validateRequiredParam(siteQuery, 'site');
+  if (paramError) return paramError;
+
+  // Find site or return error
+  const siteResult = findSiteOrError(siteQuery, services.siteData);
+  if ('error' in siteResult) return siteResult.error;
+  const { site } = siteResult;
 
   try {
-    const site = findSite(siteQuery, services.siteData);
-
-    if (!site) {
-      const allSites = services.siteData.getSites();
-      const siteNames = allSites.map((s: any) => s.name).join(', ');
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Site not found: "${siteQuery}". Available sites: ${siteNames || 'none'}`,
-          },
-        ],
-        isError: true,
-      };
-    }
-
     const currentStatus = await services.siteProcessManager.getSiteStatus(site);
 
     if (currentStatus === 'running') {

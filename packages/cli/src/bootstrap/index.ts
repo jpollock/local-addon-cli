@@ -234,6 +234,30 @@ interface GitHubRelease {
 }
 
 /**
+ * Allowed domains for downloading addon packages
+ * Security: Prevents supply chain attacks via malicious redirect URLs
+ */
+const ALLOWED_DOWNLOAD_DOMAINS = [
+  'github.com',
+  'objects.githubusercontent.com',
+  'github-releases.githubusercontent.com',
+];
+
+/**
+ * Validate that a download URL is from a trusted domain
+ */
+function isAllowedDownloadUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return ALLOWED_DOWNLOAD_DOMAINS.some(
+      (domain) => parsed.hostname === domain || parsed.hostname.endsWith(`.${domain}`)
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Fetch the latest release from GitHub
  */
 async function fetchLatestRelease(repo: string): Promise<GitHubRelease> {
@@ -344,6 +368,13 @@ export async function installAddon(options: {
       }
 
       log(`Downloading ${release.tag_name}...`);
+
+      // Security: Validate download URL is from trusted domain
+      if (!isAllowedDownloadUrl(tgzAsset.browser_download_url)) {
+        throw new Error(
+          `Download URL not from trusted domain: ${tgzAsset.browser_download_url}`
+        );
+      }
 
       // Download to temp location
       const tempPath = path.join(paths.dataDir, 'addon-download.tgz');

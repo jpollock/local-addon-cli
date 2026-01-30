@@ -79,6 +79,38 @@ export function isValidSqlPath(sqlPath: unknown): boolean {
 }
 
 /**
+ * MCP Tool Result type for error responses
+ */
+export interface McpErrorResult {
+  content: Array<{ type: 'text'; text: string }>;
+  isError: true;
+}
+
+/**
+ * Create a standardized error result for MCP tools
+ */
+export function createErrorResult(message: string): McpErrorResult {
+  return {
+    content: [{ type: 'text', text: message }],
+    isError: true,
+  };
+}
+
+/**
+ * Validate that a required parameter is present
+ * Returns an error result if missing, null if valid
+ */
+export function validateRequiredParam(
+  value: unknown,
+  paramName: string
+): McpErrorResult | null {
+  if (!value) {
+    return createErrorResult(`Error: ${paramName} parameter is required`);
+  }
+  return null;
+}
+
+/**
  * Find a site by name or ID
  * Supports partial name matching (case-insensitive)
  */
@@ -103,4 +135,33 @@ export function findSite(query: string, siteData: any): any | undefined {
   if (byDomain) return byDomain;
 
   return undefined;
+}
+
+/**
+ * Get all site names as a comma-separated string
+ */
+export function getAllSiteNames(siteData: any): string {
+  const sitesMap = siteData.getSites();
+  const sites = Object.values(sitesMap) as any[];
+  return sites.map((s: any) => s.name).join(', ') || 'none';
+}
+
+/**
+ * Find a site or return an error result
+ * Combines site lookup with standardized error handling
+ */
+export function findSiteOrError(
+  query: string,
+  siteData: any
+): { site: any } | { error: McpErrorResult } {
+  const site = findSite(query, siteData);
+  if (!site) {
+    const siteNames = getAllSiteNames(siteData);
+    return {
+      error: createErrorResult(
+        `Site not found: "${query}". Available sites: ${siteNames}`
+      ),
+    };
+  }
+  return { site };
 }

@@ -4,7 +4,7 @@
  */
 
 import { McpToolDefinition, McpToolResult, LocalServices } from '../../../common/types';
-import { findSite, isValidFilePath } from './helpers';
+import { validateRequiredParam, findSiteOrError, isValidFilePath, createErrorResult } from './helpers';
 
 export const exportDatabaseDefinition: McpToolDefinition = {
   name: 'export_database',
@@ -36,30 +36,16 @@ export async function exportDatabase(
 ): Promise<McpToolResult> {
   const { site: siteQuery, outputPath } = args as unknown as ExportDatabaseArgs;
 
-  if (!siteQuery) {
-    return {
-      content: [{ type: 'text', text: 'Error: site parameter is required' }],
-      isError: true,
-    };
-  }
+  // Validate required parameter
+  const siteError = validateRequiredParam(siteQuery, 'site');
+  if (siteError) return siteError;
+
+  // Find site or return error
+  const siteResult = findSiteOrError(siteQuery, services.siteData);
+  if ('error' in siteResult) return siteResult.error;
+  const { site } = siteResult;
 
   try {
-    const site = findSite(siteQuery, services.siteData);
-
-    if (!site) {
-      const allSites = services.siteData.getSites();
-      const siteNames = allSites.map((s: any) => s.name).join(', ');
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Site not found: "${siteQuery}". Available sites: ${siteNames || 'none'}`,
-          },
-        ],
-        isError: true,
-      };
-    }
-
     // Determine output path
     const homeDir = process.env.HOME || process.env.USERPROFILE || '';
     const defaultPath = `${homeDir}/Downloads/${site.name.replace(/[^a-zA-Z0-9-_]/g, '-')}.sql`;
@@ -67,15 +53,9 @@ export async function exportDatabase(
 
     // Security: Validate output path is safe (no path traversal attacks)
     if (!isValidFilePath(finalPath)) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: 'Error: Invalid output path. Path must be within allowed directories (home, tmp).',
-          },
-        ],
-        isError: true,
-      };
+      return createErrorResult(
+        'Error: Invalid output path. Path must be within allowed directories (home, tmp).'
+      );
     }
 
     // Run WP-CLI db export

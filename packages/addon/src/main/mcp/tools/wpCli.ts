@@ -4,7 +4,7 @@
  */
 
 import { McpToolDefinition, McpToolResult, LocalServices } from '../../../common/types';
-import { findSite, isBlockedWpCommand } from './helpers';
+import { validateRequiredParam, findSiteOrError, isBlockedWpCommand, createErrorResult } from './helpers';
 
 export const wpCliDefinition: McpToolDefinition = {
   name: 'wp_cli',
@@ -46,24 +46,12 @@ export async function wpCli(
 ): Promise<McpToolResult> {
   const { site: siteQuery, command: rawCommand } = args as unknown as WpCliArgs;
 
-  if (!siteQuery) {
-    return {
-      content: [{ type: 'text', text: 'Error: site parameter is required' }],
-      isError: true,
-    };
-  }
+  // Validate required parameters
+  const siteError = validateRequiredParam(siteQuery, 'site');
+  if (siteError) return siteError;
 
-  if (!rawCommand) {
-    return {
-      content: [
-        {
-          type: 'text',
-          text: 'Error: command parameter is required',
-        },
-      ],
-      isError: true,
-    };
-  }
+  const commandError = validateRequiredParam(rawCommand, 'command');
+  if (commandError) return commandError;
 
   // Normalize command to array - accept both string and array formats
   let command: string[];
@@ -86,48 +74,23 @@ export async function wpCli(
   }
 
   if (command.length === 0) {
-    return {
-      content: [
-        {
-          type: 'text',
-          text: 'Error: command cannot be empty',
-        },
-      ],
-      isError: true,
-    };
+    return createErrorResult('Error: command cannot be empty');
   }
 
   // Security: Check for blocked commands
   const blockedCommand = isBlockedWpCommand(command);
   if (blockedCommand) {
-    return {
-      content: [
-        {
-          type: 'text',
-          text: `Error: Command "${blockedCommand}" is blocked for security reasons. This command could allow arbitrary code execution.`,
-        },
-      ],
-      isError: true,
-    };
+    return createErrorResult(
+      `Error: Command "${blockedCommand}" is blocked for security reasons. This command could allow arbitrary code execution.`
+    );
   }
 
+  // Find site or return error
+  const siteResult = findSiteOrError(siteQuery, services.siteData);
+  if ('error' in siteResult) return siteResult.error;
+  const { site } = siteResult;
+
   try {
-    const site = findSite(siteQuery, services.siteData);
-
-    if (!site) {
-      const allSites = services.siteData.getSites();
-      const siteNames = allSites.map((s: any) => s.name).join(', ');
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Site not found: "${siteQuery}". Available sites: ${siteNames || 'none'}`,
-          },
-        ],
-        isError: true,
-      };
-    }
-
     const currentStatus = await services.siteProcessManager.getSiteStatus(site);
 
     if (currentStatus !== 'running') {
