@@ -9,6 +9,9 @@
 
 import { Command } from 'commander';
 import ora from 'ora';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 import { bootstrap, ConnectionInfo } from './bootstrap';
 import { GraphQLClient } from './client';
 import {
@@ -1286,6 +1289,87 @@ async function findSiteId(gql: GraphQLClient, siteQuery: string): Promise<string
 
   return site.id;
 }
+
+// ===========================================
+// Skill Command (for AI assistants)
+// ===========================================
+
+program
+  .command('skill')
+  .description('Install Claude Code skill for AI assistant integration')
+  .argument('[action]', 'Action: install, uninstall, or path', 'install')
+  .action(async (action: string) => {
+    const skillName = 'lwp';
+    const userSkillsDir = path.join(os.homedir(), '.claude', 'skills', skillName);
+    const bundledSkillDir = path.resolve(__dirname, '..', 'skill');
+
+    switch (action) {
+      case 'install': {
+        // Check if skill is bundled
+        const bundledSkillFile = path.join(bundledSkillDir, 'SKILL.md');
+        if (!fs.existsSync(bundledSkillFile)) {
+          console.error(formatError('Skill not found in package. Please reinstall the CLI.'));
+          process.exit(1);
+        }
+
+        // Create user skills directory
+        if (!fs.existsSync(path.dirname(userSkillsDir))) {
+          fs.mkdirSync(path.dirname(userSkillsDir), { recursive: true });
+        }
+
+        // Check if already installed
+        if (fs.existsSync(userSkillsDir)) {
+          console.log(formatSuccess(`Skill already installed at ${userSkillsDir}`));
+          return;
+        }
+
+        // Create symlink to bundled skill
+        try {
+          fs.symlinkSync(bundledSkillDir, userSkillsDir);
+          console.log(formatSuccess(`Installed Claude Code skill to ${userSkillsDir}`));
+          console.log('\nClaude Code will now recognize lwp commands.');
+          console.log('Try asking: "List my Local sites" or "Start the blog site"');
+        } catch (error: any) {
+          // If symlink fails, copy the files
+          fs.mkdirSync(userSkillsDir, { recursive: true });
+          fs.copyFileSync(bundledSkillFile, path.join(userSkillsDir, 'SKILL.md'));
+          console.log(formatSuccess(`Installed Claude Code skill to ${userSkillsDir}`));
+          console.log('\nClaude Code will now recognize lwp commands.');
+        }
+        break;
+      }
+
+      case 'uninstall': {
+        if (!fs.existsSync(userSkillsDir)) {
+          console.log('Skill not installed.');
+          return;
+        }
+
+        try {
+          const stat = fs.lstatSync(userSkillsDir);
+          if (stat.isSymbolicLink()) {
+            fs.unlinkSync(userSkillsDir);
+          } else {
+            fs.rmSync(userSkillsDir, { recursive: true });
+          }
+          console.log(formatSuccess('Uninstalled Claude Code skill.'));
+        } catch (error: any) {
+          console.error(formatError(`Failed to uninstall: ${error.message}`));
+          process.exit(1);
+        }
+        break;
+      }
+
+      case 'path': {
+        console.log(userSkillsDir);
+        break;
+      }
+
+      default:
+        console.error(formatError(`Unknown action: ${action}. Use install, uninstall, or path.`));
+        process.exit(1);
+    }
+  });
 
 // Parse and execute
 program.parse();

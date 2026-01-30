@@ -45,6 +45,7 @@
     "lib/",
     "bin/",
     "addon-dist/",
+    "skill/",
     "README.md"
   ],
   "dependencies": {
