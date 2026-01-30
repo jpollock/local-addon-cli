@@ -4,7 +4,7 @@
  */
 
 import { McpToolDefinition, McpToolResult, LocalServices } from '../../../common/types';
-import { findSite } from './helpers';
+import { validateRequiredParam, findSiteOrError } from './helpers';
 
 export const cloneSiteDefinition: McpToolDefinition = {
   name: 'clone_site',
@@ -36,37 +36,17 @@ export async function cloneSite(
 ): Promise<McpToolResult> {
   const { site: siteQuery, new_name: newName } = args as unknown as CloneSiteArgs;
 
-  if (!siteQuery) {
-    return {
-      content: [{ type: 'text', text: 'Error: site parameter is required' }],
-      isError: true,
-    };
-  }
+  const siteError = validateRequiredParam(siteQuery, 'site');
+  if (siteError) return siteError;
 
-  if (!newName) {
-    return {
-      content: [{ type: 'text', text: 'Error: new_name parameter is required' }],
-      isError: true,
-    };
-  }
+  const nameError = validateRequiredParam(newName, 'new_name');
+  if (nameError) return nameError;
+
+  const siteResult = findSiteOrError(siteQuery, services.siteData);
+  if ('error' in siteResult) return siteResult.error;
+  const { site } = siteResult;
 
   try {
-    const site = findSite(siteQuery, services.siteData);
-
-    if (!site) {
-      const allSites = services.siteData.getSites();
-      const siteNames = allSites.map((s: any) => s.name).join(', ');
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Site not found: "${siteQuery}". Available sites: ${siteNames || 'none'}`,
-          },
-        ],
-        isError: true,
-      };
-    }
-
     // Check if cloneSite service exists
     if (!services.cloneSite) {
       return {

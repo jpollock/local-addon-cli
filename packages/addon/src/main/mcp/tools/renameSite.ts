@@ -4,7 +4,7 @@
  */
 
 import { McpToolDefinition, McpToolResult, LocalServices } from '../../../common/types';
-import { findSite } from './helpers';
+import { validateRequiredParam, findSiteOrError, createErrorResult } from './helpers';
 
 export const renameSiteDefinition: McpToolDefinition = {
   name: 'rename_site',
@@ -36,45 +36,23 @@ export async function renameSite(
 ): Promise<McpToolResult> {
   const { site: siteQuery, newName } = args as unknown as RenameSiteArgs;
 
-  if (!siteQuery) {
-    return {
-      content: [{ type: 'text', text: 'Error: site parameter is required' }],
-      isError: true,
-    };
-  }
+  const siteError = validateRequiredParam(siteQuery, 'site');
+  if (siteError) return siteError;
 
-  if (!newName) {
-    return {
-      content: [{ type: 'text', text: 'Error: newName parameter is required' }],
-      isError: true,
-    };
-  }
+  const nameError = validateRequiredParam(newName, 'newName');
+  if (nameError) return nameError;
 
   if (!newName.trim()) {
-    return {
-      content: [{ type: 'text', text: 'Error: newName cannot be empty' }],
-      isError: true,
-    };
+    return createErrorResult('Error: newName cannot be empty');
   }
 
+  const siteResult = findSiteOrError(siteQuery, services.siteData);
+  if ('error' in siteResult) return siteResult.error;
+  const { site } = siteResult;
+
+  const oldName = site.name;
+
   try {
-    const site = findSite(siteQuery, services.siteData);
-
-    if (!site) {
-      const allSites = services.siteData.getSites();
-      const siteNames = allSites.map((s: any) => s.name).join(', ');
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Site not found: "${siteQuery}". Available sites: ${siteNames || 'none'}`,
-          },
-        ],
-        isError: true,
-      };
-    }
-
-    const oldName = site.name;
 
     // Check if updateSite method exists on siteData
     if (!services.siteData.updateSite) {
