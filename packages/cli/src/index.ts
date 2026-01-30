@@ -239,25 +239,13 @@ sites
   .description('Open site in browser')
   .option('--admin', 'Open WP Admin instead of frontend')
   .action(async (site, cmdOptions) => {
-    const globalOpts = program.opts() as FormatterOptions;
-    const spinner = globalOpts.quiet ? null : ora(`Opening "${site}"...`).start();
-
-    try {
-      const gql = await ensureConnected(globalOpts);
-      const siteId = await findSiteId(gql, site);
-
-      await gql.mutate(`
+    await runSiteCommand(site, { action: 'Opening', successMessage: () => `Opened "${site}"` }, async (gql, siteId) => {
+      return gql.mutate(`
         mutation($input: OpenSiteInput!) {
           openSite(input: $input) { success error }
         }
       `, { input: { siteId, openAdmin: cmdOptions.admin || false } });
-
-      spinner?.succeed(`Opened "${site}"`);
-    } catch (error: any) {
-      spinner?.fail(`Failed to open "${site}"`);
-      console.error(formatError(error.message));
-      process.exit(1);
-    }
+    });
   });
 
 sites
@@ -310,62 +298,34 @@ sites
   .option('-y, --yes', 'Skip confirmation')
   .option('--keep-files', 'Keep site files (only remove from Local)')
   .action(async (site, cmdOptions) => {
-    const globalOpts = program.opts() as FormatterOptions;
-    const spinner = globalOpts.quiet ? null : ora(`Deleting "${site}"...`).start();
-
-    try {
-      const gql = await ensureConnected(globalOpts);
-      const siteId = await findSiteId(gql, site);
-
+    await runSiteCommand(site, { action: 'Deleting', successMessage: () => `Deleted "${site}"` }, async (gql, siteId) => {
       const data = await gql.mutate<{ deleteSite: { success: boolean; error: string | null } }>(`
         mutation($input: DeleteSiteInput!) {
           deleteSite(input: $input) { success error }
         }
       `, { input: { id: siteId, trashFiles: !cmdOptions.keepFiles } });
-
       if (!data.deleteSite.success) {
-        spinner?.fail('Delete failed');
-        console.error(formatError(data.deleteSite.error || 'Failed to delete site'));
-        process.exit(1);
+        throw new Error(data.deleteSite.error || 'Failed to delete site');
       }
-
-      spinner?.succeed(`Deleted "${site}"`);
-    } catch (error: any) {
-      spinner?.fail('Delete failed');
-      console.error(formatError(error.message));
-      process.exit(1);
-    }
+      return data;
+    });
   });
 
 sites
   .command('clone <site> <newName>')
   .description('Clone a site')
   .action(async (site, newName) => {
-    const globalOpts = program.opts() as FormatterOptions;
-    const spinner = globalOpts.quiet ? null : ora(`Cloning "${site}" to "${newName}"...`).start();
-
-    try {
-      const gql = await ensureConnected(globalOpts);
-      const siteId = await findSiteId(gql, site);
-
+    await runSiteCommand(site, { action: `Cloning`, successMessage: (data: { cloneSite: { newSiteName: string; newSiteId: string } }) => `Cloned to "${data.cloneSite.newSiteName}" (${data.cloneSite.newSiteId})` }, async (gql, siteId) => {
       const data = await gql.mutate<{ cloneSite: { success: boolean; newSiteId: string; newSiteName: string; error: string | null } }>(`
         mutation($input: CloneSiteInput!) {
           cloneSite(input: $input) { success newSiteId newSiteName error }
         }
       `, { input: { siteId, newName } });
-
       if (!data.cloneSite.success) {
-        spinner?.fail('Clone failed');
-        console.error(formatError(data.cloneSite.error || 'Failed to clone site'));
-        process.exit(1);
+        throw new Error(data.cloneSite.error || 'Failed to clone site');
       }
-
-      spinner?.succeed(`Cloned to "${data.cloneSite.newSiteName}" (${data.cloneSite.newSiteId})`);
-    } catch (error: any) {
-      spinner?.fail('Clone failed');
-      console.error(formatError(error.message));
-      process.exit(1);
-    }
+      return data;
+    });
   });
 
 sites
@@ -373,31 +333,17 @@ sites
   .description('Export site to zip file')
   .option('-o, --output <path>', 'Output file path')
   .action(async (site, cmdOptions) => {
-    const globalOpts = program.opts() as FormatterOptions;
-    const spinner = globalOpts.quiet ? null : ora(`Exporting "${site}"...`).start();
-
-    try {
-      const gql = await ensureConnected(globalOpts);
-      const siteId = await findSiteId(gql, site);
-
+    await runSiteCommand(site, { action: 'Exporting', successMessage: (data: { exportSite: { outputPath: string } }) => `Exported to ${data.exportSite.outputPath}` }, async (gql, siteId) => {
       const data = await gql.mutate<{ exportSite: { success: boolean; outputPath: string; error: string | null } }>(`
         mutation($input: ExportSiteInput!) {
           exportSite(input: $input) { success outputPath error }
         }
       `, { input: { siteId, outputPath: cmdOptions.output } });
-
       if (!data.exportSite.success) {
-        spinner?.fail('Export failed');
-        console.error(formatError(data.exportSite.error || 'Failed to export site'));
-        process.exit(1);
+        throw new Error(data.exportSite.error || 'Failed to export site');
       }
-
-      spinner?.succeed(`Exported to ${data.exportSite.outputPath}`);
-    } catch (error: any) {
-      spinner?.fail('Export failed');
-      console.error(formatError(error.message));
-      process.exit(1);
-    }
+      return data;
+    });
   });
 
 sites
@@ -435,93 +381,51 @@ sites
   .command('rename <site> <newName>')
   .description('Rename a site')
   .action(async (site, newName) => {
-    const globalOpts = program.opts() as FormatterOptions;
-    const spinner = globalOpts.quiet ? null : ora(`Renaming "${site}" to "${newName}"...`).start();
-
-    try {
-      const gql = await ensureConnected(globalOpts);
-      const siteId = await findSiteId(gql, site);
-
+    await runSiteCommand(site, { action: 'Renaming', successMessage: () => `Renamed to "${newName}"` }, async (gql, siteId) => {
       const data = await gql.mutate<{ mcpRenameSite: { success: boolean; error: string | null } }>(`
         mutation($input: McpRenameSiteInput!) {
           mcpRenameSite(input: $input) { success error }
         }
       `, { input: { siteId, newName } });
-
       if (!data.mcpRenameSite.success) {
-        spinner?.fail('Rename failed');
-        console.error(formatError(data.mcpRenameSite.error || 'Failed to rename site'));
-        process.exit(1);
+        throw new Error(data.mcpRenameSite.error || 'Failed to rename site');
       }
-
-      spinner?.succeed(`Renamed to "${newName}"`);
-    } catch (error: any) {
-      spinner?.fail('Rename failed');
-      console.error(formatError(error.message));
-      process.exit(1);
-    }
+      return data;
+    });
   });
 
 sites
   .command('ssl <site>')
   .description('Trust SSL certificate for a site')
   .action(async (site) => {
-    const globalOpts = program.opts() as FormatterOptions;
-    const spinner = globalOpts.quiet ? null : ora(`Trusting SSL for "${site}"...`).start();
-
-    try {
-      const gql = await ensureConnected(globalOpts);
-      const siteId = await findSiteId(gql, site);
-
+    await runSiteCommand(site, { action: 'Trusting SSL for', successMessage: () => `SSL certificate trusted for "${site}"` }, async (gql, siteId) => {
       const data = await gql.mutate<{ trustSsl: { success: boolean; error: string | null } }>(`
         mutation($input: TrustSslInput!) {
           trustSsl(input: $input) { success error }
         }
       `, { input: { siteId } });
-
       if (!data.trustSsl.success) {
-        spinner?.fail('Trust SSL failed');
-        console.error(formatError(data.trustSsl.error || 'Failed to trust SSL'));
-        process.exit(1);
+        throw new Error(data.trustSsl.error || 'Failed to trust SSL');
       }
-
-      spinner?.succeed(`SSL certificate trusted for "${site}"`);
-    } catch (error: any) {
-      spinner?.fail('Trust SSL failed');
-      console.error(formatError(error.message));
-      process.exit(1);
-    }
+      return data;
+    });
   });
 
 sites
   .command('php <site> <version>')
   .description('Change PHP version for a site')
   .action(async (site, version) => {
-    const globalOpts = program.opts() as FormatterOptions;
-    const spinner = globalOpts.quiet ? null : ora(`Changing PHP to ${version}...`).start();
-
-    try {
-      const gql = await ensureConnected(globalOpts);
-      const siteId = await findSiteId(gql, site);
-
+    await runSiteCommand(site, { action: `Changing PHP to ${version} for`, successMessage: () => `PHP version changed to ${version}` }, async (gql, siteId) => {
       const data = await gql.mutate<{ changePhpVersion: { success: boolean; error: string | null } }>(`
         mutation($input: ChangePhpVersionInput!) {
           changePhpVersion(input: $input) { success error }
         }
       `, { input: { siteId, phpVersion: version } });
-
       if (!data.changePhpVersion.success) {
-        spinner?.fail('PHP change failed');
-        console.error(formatError(data.changePhpVersion.error || 'Failed to change PHP version'));
-        process.exit(1);
+        throw new Error(data.changePhpVersion.error || 'Failed to change PHP version');
       }
-
-      spinner?.succeed(`PHP version changed to ${version}`);
-    } catch (error: any) {
-      spinner?.fail('PHP change failed');
-      console.error(formatError(error.message));
-      process.exit(1);
-    }
+      return data;
+    });
   });
 
 sites
@@ -530,15 +434,9 @@ sites
   .option('--on', 'Enable Xdebug')
   .option('--off', 'Disable Xdebug')
   .action(async (site, cmdOptions) => {
-    const globalOpts = program.opts() as FormatterOptions;
     const enabled = cmdOptions.on ? true : cmdOptions.off ? false : undefined;
     const action = enabled === undefined ? 'Toggling' : enabled ? 'Enabling' : 'Disabling';
-    const spinner = globalOpts.quiet ? null : ora(`${action} Xdebug...`).start();
-
-    try {
-      const gql = await ensureConnected(globalOpts);
-      const siteId = await findSiteId(gql, site);
-
+    await runSiteCommand(site, { action: `${action} Xdebug for`, successMessage: (data: { toggleXdebug: { enabled: boolean } }) => `Xdebug ${data.toggleXdebug.enabled ? 'enabled' : 'disabled'}` }, async (gql, siteId) => {
       // If no flag specified, get current state and toggle
       let targetEnabled = enabled;
       if (targetEnabled === undefined) {
@@ -547,25 +445,16 @@ sites
         `, { id: siteId });
         targetEnabled = !siteData.site.xdebugEnabled;
       }
-
       const data = await gql.mutate<{ toggleXdebug: { success: boolean; enabled: boolean; error: string | null } }>(`
         mutation($input: ToggleXdebugInput!) {
           toggleXdebug(input: $input) { success enabled error }
         }
       `, { input: { siteId, enabled: targetEnabled } });
-
       if (!data.toggleXdebug.success) {
-        spinner?.fail('Xdebug toggle failed');
-        console.error(formatError(data.toggleXdebug.error || 'Failed to toggle Xdebug'));
-        process.exit(1);
+        throw new Error(data.toggleXdebug.error || 'Failed to toggle Xdebug');
       }
-
-      spinner?.succeed(`Xdebug ${data.toggleXdebug.enabled ? 'enabled' : 'disabled'}`);
-    } catch (error: any) {
-      spinner?.fail('Xdebug toggle failed');
-      console.error(formatError(error.message));
-      process.exit(1);
-    }
+      return data;
+    });
   });
 
 sites
@@ -771,31 +660,17 @@ blueprints
   .command('save <site> <name>')
   .description('Save a site as a blueprint')
   .action(async (site, name) => {
-    const globalOpts = program.opts() as FormatterOptions;
-    const spinner = globalOpts.quiet ? null : ora(`Saving blueprint "${name}"...`).start();
-
-    try {
-      const gql = await ensureConnected(globalOpts);
-      const siteId = await findSiteId(gql, site);
-
+    await runSiteCommand(site, { action: 'Saving blueprint from', successMessage: () => `Saved blueprint "${name}"` }, async (gql, siteId) => {
       const data = await gql.mutate<{ saveBlueprint: { success: boolean; error: string | null } }>(`
         mutation($input: SaveBlueprintInput!) {
           saveBlueprint(input: $input) { success error }
         }
       `, { input: { siteId, name } });
-
       if (!data.saveBlueprint.success) {
-        spinner?.fail('Save failed');
-        console.error(formatError(data.saveBlueprint.error || 'Failed to save blueprint'));
-        process.exit(1);
+        throw new Error(data.saveBlueprint.error || 'Failed to save blueprint');
       }
-
-      spinner?.succeed(`Saved blueprint "${name}"`);
-    } catch (error: any) {
-      spinner?.fail('Save failed');
-      console.error(formatError(error.message));
-      process.exit(1);
-    }
+      return data;
+    });
   });
 
 // ===========================================
@@ -809,87 +684,47 @@ db
   .description('Export database to SQL file')
   .option('-o, --output <path>', 'Output file path')
   .action(async (site, cmdOptions) => {
-    const globalOpts = program.opts() as FormatterOptions;
-    const spinner = globalOpts.quiet ? null : ora(`Exporting database...`).start();
-
-    try {
-      const gql = await ensureConnected(globalOpts);
-      const siteId = await findSiteId(gql, site);
-
+    await runSiteCommand(site, { action: 'Exporting database for', successMessage: (data: { exportDatabase: { outputPath: string } }) => `Exported to ${data.exportDatabase.outputPath}` }, async (gql, siteId) => {
       const data = await gql.mutate<{ exportDatabase: { success: boolean; outputPath: string; error: string | null } }>(`
         mutation($input: ExportDatabaseInput!) {
           exportDatabase(input: $input) { success outputPath error }
         }
       `, { input: { siteId, outputPath: cmdOptions.output } });
-
       if (!data.exportDatabase.success) {
-        spinner?.fail('Export failed');
-        console.error(formatError(data.exportDatabase.error || 'Failed to export database'));
-        process.exit(1);
+        throw new Error(data.exportDatabase.error || 'Failed to export database');
       }
-
-      spinner?.succeed(`Exported to ${data.exportDatabase.outputPath}`);
-    } catch (error: any) {
-      spinner?.fail('Export failed');
-      console.error(formatError(error.message));
-      process.exit(1);
-    }
+      return data;
+    });
   });
 
 db
   .command('import <site> <sqlFile>')
   .description('Import SQL file into database')
   .action(async (site, sqlFile) => {
-    const globalOpts = program.opts() as FormatterOptions;
-    const spinner = globalOpts.quiet ? null : ora(`Importing database...`).start();
-
-    try {
-      const gql = await ensureConnected(globalOpts);
-      const siteId = await findSiteId(gql, site);
-
+    await runSiteCommand(site, { action: 'Importing database for', successMessage: () => 'Database imported successfully' }, async (gql, siteId) => {
       const data = await gql.mutate<{ importDatabase: { success: boolean; error: string | null } }>(`
         mutation($input: ImportDatabaseInput!) {
           importDatabase(input: $input) { success error }
         }
       `, { input: { siteId, sqlPath: sqlFile } });
-
       if (!data.importDatabase.success) {
-        spinner?.fail('Import failed');
-        console.error(formatError(data.importDatabase.error || 'Failed to import database'));
-        process.exit(1);
+        throw new Error(data.importDatabase.error || 'Failed to import database');
       }
-
-      spinner?.succeed('Database imported successfully');
-    } catch (error: any) {
-      spinner?.fail('Import failed');
-      console.error(formatError(error.message));
-      process.exit(1);
-    }
+      return data;
+    });
   });
 
 db
   .command('adminer <site>')
   .description('Open Adminer database UI')
   .action(async (site) => {
-    const globalOpts = program.opts() as FormatterOptions;
-    const spinner = globalOpts.quiet ? null : ora(`Opening Adminer...`).start();
-
-    try {
-      const gql = await ensureConnected(globalOpts);
-      const siteId = await findSiteId(gql, site);
-
-      await gql.mutate(`
+    await runSiteCommand(site, { action: 'Opening Adminer for', successMessage: () => 'Opened Adminer' }, async (gql, siteId) => {
+      return gql.mutate(`
         mutation($input: OpenAdminerInput!) {
           openAdminer(input: $input) { success error }
         }
       `, { input: { siteId } });
-
-      spinner?.succeed('Opened Adminer');
-    } catch (error: any) {
-      spinner?.fail('Failed to open Adminer');
-      console.error(formatError(error.message));
-      process.exit(1);
-    }
+    });
   });
 
 // ===========================================
@@ -989,13 +824,7 @@ backups
   .option('-p, --provider <provider>', 'Backup provider (dropbox|googleDrive)', 'dropbox')
   .option('-n, --note <note>', 'Backup note')
   .action(async (site, cmdOptions) => {
-    const globalOpts = program.opts() as FormatterOptions;
-    const spinner = globalOpts.quiet ? null : ora(`Creating backup...`).start();
-
-    try {
-      const gql = await ensureConnected(globalOpts);
-      const siteId = await findSiteId(gql, site);
-
+    await runSiteCommand(site, { action: 'Creating backup for', successMessage: (data: { createBackup: { snapshotId: string } }) => `Backup created: ${data.createBackup.snapshotId}` }, async (gql, siteId) => {
       const data = await gql.mutate<{ createBackup: { success: boolean; snapshotId: string; error: string | null } }>(`
         mutation($siteId: ID!, $provider: String!, $note: String) {
           createBackup(siteId: $siteId, provider: $provider, note: $note) {
@@ -1003,19 +832,11 @@ backups
           }
         }
       `, { siteId, provider: cmdOptions.provider, note: cmdOptions.note });
-
       if (!data.createBackup.success) {
-        spinner?.fail('Backup failed');
-        console.error(formatError(data.createBackup.error || 'Failed to create backup'));
-        process.exit(1);
+        throw new Error(data.createBackup.error || 'Failed to create backup');
       }
-
-      spinner?.succeed(`Backup created: ${data.createBackup.snapshotId}`);
-    } catch (error: any) {
-      spinner?.fail('Backup failed');
-      console.error(formatError(error.message));
-      process.exit(1);
-    }
+      return data;
+    });
   });
 
 backups
@@ -1024,13 +845,7 @@ backups
   .option('-p, --provider <provider>', 'Backup provider (dropbox|googleDrive)', 'dropbox')
   .option('-y, --yes', 'Skip confirmation')
   .action(async (site, snapshotId, cmdOptions) => {
-    const globalOpts = program.opts() as FormatterOptions;
-    const spinner = globalOpts.quiet ? null : ora(`Restoring backup...`).start();
-
-    try {
-      const gql = await ensureConnected(globalOpts);
-      const siteId = await findSiteId(gql, site);
-
+    await runSiteCommand(site, { action: 'Restoring backup for', successMessage: (data: { restoreBackup: { message: string } }) => data.restoreBackup.message || 'Backup restored successfully' }, async (gql, siteId) => {
       const data = await gql.mutate<{ restoreBackup: { success: boolean; message: string; error: string | null } }>(`
         mutation($siteId: ID!, $provider: String!, $snapshotId: String!, $confirm: Boolean) {
           restoreBackup(siteId: $siteId, provider: $provider, snapshotId: $snapshotId, confirm: $confirm) {
@@ -1038,19 +853,11 @@ backups
           }
         }
       `, { siteId, provider: cmdOptions.provider, snapshotId, confirm: cmdOptions.yes || false });
-
       if (!data.restoreBackup.success) {
-        spinner?.fail('Restore failed');
-        console.error(formatError(data.restoreBackup.error || 'Failed to restore backup'));
-        process.exit(1);
+        throw new Error(data.restoreBackup.error || 'Failed to restore backup');
       }
-
-      spinner?.succeed(data.restoreBackup.message || 'Backup restored successfully');
-    } catch (error: any) {
-      spinner?.fail('Restore failed');
-      console.error(formatError(error.message));
-      process.exit(1);
-    }
+      return data;
+    });
   });
 
 backups
@@ -1059,13 +866,7 @@ backups
   .option('-p, --provider <provider>', 'Backup provider (dropbox|googleDrive)', 'dropbox')
   .option('-y, --yes', 'Skip confirmation')
   .action(async (site, snapshotId, cmdOptions) => {
-    const globalOpts = program.opts() as FormatterOptions;
-    const spinner = globalOpts.quiet ? null : ora(`Deleting backup...`).start();
-
-    try {
-      const gql = await ensureConnected(globalOpts);
-      const siteId = await findSiteId(gql, site);
-
+    await runSiteCommand(site, { action: 'Deleting backup for', successMessage: () => 'Backup deleted' }, async (gql, siteId) => {
       const data = await gql.mutate<{ deleteBackup: { success: boolean; error: string | null } }>(`
         mutation($siteId: ID!, $provider: String!, $snapshotId: String!, $confirm: Boolean) {
           deleteBackup(siteId: $siteId, provider: $provider, snapshotId: $snapshotId, confirm: $confirm) {
@@ -1073,19 +874,11 @@ backups
           }
         }
       `, { siteId, provider: cmdOptions.provider, snapshotId, confirm: cmdOptions.yes || false });
-
       if (!data.deleteBackup.success) {
-        spinner?.fail('Delete failed');
-        console.error(formatError(data.deleteBackup.error || 'Failed to delete backup'));
-        process.exit(1);
+        throw new Error(data.deleteBackup.error || 'Failed to delete backup');
       }
-
-      spinner?.succeed('Backup deleted');
-    } catch (error: any) {
-      spinner?.fail('Delete failed');
-      console.error(formatError(error.message));
-      process.exit(1);
-    }
+      return data;
+    });
   });
 
 // ===========================================
@@ -1283,13 +1076,7 @@ wpe
   .option('--sql', 'Include database')
   .option('-y, --yes', 'Skip confirmation')
   .action(async (site, cmdOptions) => {
-    const globalOpts = program.opts() as FormatterOptions;
-    const spinner = globalOpts.quiet ? null : ora(`Pushing to WP Engine...`).start();
-
-    try {
-      const gql = await ensureConnected(globalOpts);
-      const siteId = await findSiteId(gql, site);
-
+    await runSiteCommand(site, { action: 'Pushing to WP Engine', successMessage: (data: { pushToWpe: { message: string } }) => data.pushToWpe.message || 'Pushed to WP Engine' }, async (gql, siteId) => {
       // Get remote install ID if not provided
       let remoteInstallId = cmdOptions.remote;
       if (!remoteInstallId) {
@@ -1300,15 +1087,11 @@ wpe
             }
           }
         `, { siteId });
-
         if (linkData.getWpeLink.connections.length === 0) {
-          spinner?.fail('No WP Engine connection found');
-          console.error(formatError('Site is not linked to WP Engine. Use --remote to specify install ID.'));
-          process.exit(1);
+          throw new Error('Site is not linked to WP Engine. Use --remote to specify install ID.');
         }
         remoteInstallId = linkData.getWpeLink.connections[0].remoteInstallId;
       }
-
       const data = await gql.mutate<{ pushToWpe: { success: boolean; message: string; error: string | null } }>(`
         mutation($localSiteId: ID!, $remoteInstallId: ID!, $includeSql: Boolean, $confirm: Boolean) {
           pushToWpe(localSiteId: $localSiteId, remoteInstallId: $remoteInstallId, includeSql: $includeSql, confirm: $confirm) {
@@ -1316,19 +1099,11 @@ wpe
           }
         }
       `, { localSiteId: siteId, remoteInstallId, includeSql: cmdOptions.sql || false, confirm: cmdOptions.yes || false });
-
       if (!data.pushToWpe.success) {
-        spinner?.fail('Push failed');
-        console.error(formatError(data.pushToWpe.error || 'Failed to push to WP Engine'));
-        process.exit(1);
+        throw new Error(data.pushToWpe.error || 'Failed to push to WP Engine');
       }
-
-      spinner?.succeed(data.pushToWpe.message || 'Pushed to WP Engine');
-    } catch (error: any) {
-      spinner?.fail('Push failed');
-      console.error(formatError(error.message));
-      process.exit(1);
-    }
+      return data;
+    });
   });
 
 wpe
@@ -1337,13 +1112,7 @@ wpe
   .option('-r, --remote <installId>', 'Remote install ID')
   .option('--sql', 'Include database')
   .action(async (site, cmdOptions) => {
-    const globalOpts = program.opts() as FormatterOptions;
-    const spinner = globalOpts.quiet ? null : ora(`Pulling from WP Engine...`).start();
-
-    try {
-      const gql = await ensureConnected(globalOpts);
-      const siteId = await findSiteId(gql, site);
-
+    await runSiteCommand(site, { action: 'Pulling from WP Engine for', successMessage: (data: { pullFromWpe: { message: string } }) => data.pullFromWpe.message || 'Pulled from WP Engine' }, async (gql, siteId) => {
       // Get remote install ID if not provided
       let remoteInstallId = cmdOptions.remote;
       if (!remoteInstallId) {
@@ -1354,15 +1123,11 @@ wpe
             }
           }
         `, { siteId });
-
         if (linkData.getWpeLink.connections.length === 0) {
-          spinner?.fail('No WP Engine connection found');
-          console.error(formatError('Site is not linked to WP Engine. Use --remote to specify install ID.'));
-          process.exit(1);
+          throw new Error('Site is not linked to WP Engine. Use --remote to specify install ID.');
         }
         remoteInstallId = linkData.getWpeLink.connections[0].remoteInstallId;
       }
-
       const data = await gql.mutate<{ pullFromWpe: { success: boolean; message: string; error: string | null } }>(`
         mutation($localSiteId: ID!, $remoteInstallId: ID!, $includeSql: Boolean) {
           pullFromWpe(localSiteId: $localSiteId, remoteInstallId: $remoteInstallId, includeSql: $includeSql) {
@@ -1370,19 +1135,11 @@ wpe
           }
         }
       `, { localSiteId: siteId, remoteInstallId, includeSql: cmdOptions.sql || false });
-
       if (!data.pullFromWpe.success) {
-        spinner?.fail('Pull failed');
-        console.error(formatError(data.pullFromWpe.error || 'Failed to pull from WP Engine'));
-        process.exit(1);
+        throw new Error(data.pullFromWpe.error || 'Failed to pull from WP Engine');
       }
-
-      spinner?.succeed(data.pullFromWpe.message || 'Pulled from WP Engine');
-    } catch (error: any) {
-      spinner?.fail('Pull failed');
-      console.error(formatError(error.message));
-      process.exit(1);
-    }
+      return data;
+    });
   });
 
 wpe
