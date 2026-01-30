@@ -11,18 +11,21 @@ Implementation plan for RFC-002, building the `lwp` CLI alongside the MCP Server
 
 ### Tool Inventory
 
-| Category | Tools | Status |
-|----------|-------|--------|
-| Site Management | 10 | ✅ Implemented |
-| Import/Export | 4 | ✅ Implemented |
-| Development Tools | 7 | ✅ Implemented |
-| Blueprints & System | 3 | ✅ Implemented |
-| Cloud Backups | 7 | ⏳ Not yet implemented |
-| WP Engine Connect | 9 | ⏳ Not yet implemented |
-| **Total** | **40** | **24 ready, 16 pending** |
+| Category | Tools | Implementation |
+|----------|-------|----------------|
+| Site Management | 10 | MCP Tools |
+| Import/Export | 4 | MCP Tools |
+| Development Tools | 7 | MCP Tools |
+| Blueprints & System | 3 | MCP Tools |
+| Cloud Backups | 7 | GraphQL |
+| WP Engine Connect | 9 | GraphQL |
+| **Total** | **40** | **All implemented** |
 
-Phases 2-6 cover the 24 implemented tools.
-Phases 7-8 require addon implementation before CLI work can begin.
+The addon uses two mechanisms:
+- **MCP Tools** (`src/main/mcp/tools/`): 24 tools for site management, WP-CLI, etc.
+- **GraphQL** (`src/main/index.ts`): 16 operations for Cloud Backups and WP Engine Connect
+
+Both are accessible via the addon's HTTP API.
 
 ---
 
@@ -327,23 +330,21 @@ Implement zero-friction installation from RFC-002.
 
 ## Phase 7: Cloud Backups
 
-> **⚠️ Prerequisite:** These 7 MCP tools must be implemented in the addon first.
-> They are documented in RFC-002 but not yet coded.
+> **Note:** These operations use GraphQL in `src/main/index.ts`, not MCP tools.
 
 **File:** `packages/cli/src/commands/backups.ts`
 
-| Command | MCP Tool |
-|---------|----------|
-| `lwp backups status` | `backup_status` |
-| `lwp backups list <site>` | `list_backups` |
-| `lwp backups create <site>` | `create_backup` |
-| `lwp backups restore <site>` | `restore_backup` |
-| `lwp backups delete <site>` | `delete_backup` |
-| `lwp backups download <site>` | `download_backup` |
-| `lwp backups edit-note <site>` | `edit_backup_note` |
+| Command | GraphQL Operation |
+|---------|-------------------|
+| `lwp backups status` | `backupStatus` query |
+| `lwp backups list <site>` | `listBackups` query |
+| `lwp backups create <site>` | `createBackup` mutation |
+| `lwp backups restore <site>` | `restoreBackup` mutation |
+| `lwp backups delete <site>` | `deleteBackup` mutation |
+| `lwp backups download <site>` | `downloadBackup` mutation |
+| `lwp backups edit-note <site>` | `editBackupNote` mutation |
 
 **Tasks:**
-- [ ] **Addon:** Implement 7 backup tools in `packages/addon/src/main/mcp/tools/`
 - [ ] Implement all backup CLI commands
 - [ ] Add --provider option (dropbox|googleDrive)
 - [ ] Add --snapshot option for specific backup selection
@@ -354,27 +355,25 @@ Implement zero-friction installation from RFC-002.
 
 ## Phase 8: WP Engine Connect
 
-> **⚠️ Prerequisite:** These 9 MCP tools must be implemented in the addon first.
-> They are documented in RFC-002 but not yet coded.
+> **Note:** These operations use GraphQL in `src/main/index.ts`, not MCP tools.
 
 **File:** `packages/cli/src/commands/wpe.ts`
 
-| Command | MCP Tool |
-|---------|----------|
-| `lwp wpe status` | `wpe_status` |
-| `lwp wpe login` | `wpe_authenticate` |
-| `lwp wpe logout` | `wpe_logout` |
-| `lwp wpe sites list` | `list_wpe_sites` |
-| `lwp wpe link <site>` | `get_wpe_link` |
-| `lwp wpe push <site>` | `push_to_wpe` |
-| `lwp wpe pull <site>` | `pull_from_wpe` |
-| `lwp wpe history <site>` | `get_sync_history` |
-| `lwp wpe changes <site>` | `get_site_changes` |
+| Command | GraphQL Operation |
+|---------|-------------------|
+| `lwp wpe status` | `wpeStatus` query |
+| `lwp wpe login` | `wpeAuthenticate` mutation |
+| `lwp wpe logout` | `wpeLogout` mutation |
+| `lwp wpe sites list` | `listWpeSites` query |
+| `lwp wpe link <site>` | `getWpeLink` query |
+| `lwp wpe push <site>` | `pushToWpe` mutation |
+| `lwp wpe pull <site>` | `pullFromWpe` mutation |
+| `lwp wpe history <site>` | `getSyncHistory` query |
+| `lwp wpe changes <site>` | `getSiteChanges` query |
 
 **Tasks:**
-- [ ] **Addon:** Implement 9 WPE tools in `packages/addon/src/main/mcp/tools/`
 - [ ] Implement all WPE CLI commands
-- [ ] Handle OAuth flow for login
+- [ ] Handle OAuth flow for login (opens browser)
 - [ ] Add --include-db option for push/pull
 - [ ] Add --confirm for push/pull
 - [ ] Add --direction option for changes
