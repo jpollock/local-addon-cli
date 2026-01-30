@@ -1,6 +1,6 @@
 {
   "name": "@local-labs/local-cli",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Command-line interface for Local WordPress development",
   "main": "lib/index.js",
   "bin": {
@@ -32,7 +32,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/local-labs/local-addon-cli-mcp.git",
+    "url": "https://github.com/getflywheel/local-addon-cli.git",
     "directory": "packages/cli"
   },
   "engines": {

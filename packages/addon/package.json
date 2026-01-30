@@ -1,8 +1,8 @@
 {
-  "name": "@local-labs/local-addon-cli-mcp",
-  "productName": "Local CLI & MCP",
-  "version": "0.1.0",
-  "description": "Command-line interface and AI tool integration for Local",
+  "name": "@local-labs/local-addon-cli",
+  "productName": "Local CLI",
+  "version": "0.0.1",
+  "description": "Command-line interface for Local WordPress development",
   "main": "lib/main/index.js",
   "renderer": "lib/renderer/index.js",
   "bin": {
@@ -24,18 +24,15 @@
   "keywords": [
     "local",
     "addon",
-    "mcp",
     "cli",
-    "model-context-protocol",
-    "ai",
-    "claude",
-    "wordpress"
+    "wordpress",
+    "development"
   ],
   "author": "Jeremy Pollock <jpollock911@gmail.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/local-labs/local-addon-cli-mcp.git",
+    "url": "https://github.com/getflywheel/local-addon-cli.git",
     "directory": "packages/addon"
   },
   "engines": {

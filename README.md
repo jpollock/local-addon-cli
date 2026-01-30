@@ -1,26 +1,19 @@
-# Local CLI & MCP
+# Local CLI
 
-[![CI](https://github.com/local-labs/local-addon-cli-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/local-labs/local-addon-cli-mcp/actions/workflows/ci.yml)
+[![CI](https://github.com/getflywheel/local-addon-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/getflywheel/local-addon-cli/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Command-line interface and AI tool integration for [Local](https://localwp.com).
+Command-line interface for [Local](https://localwp.com) WordPress development.
 
-## Overview
-
-This monorepo contains two packages:
-
-| Package | Description | npm |
-|---------|-------------|-----|
-| `@local-labs/local-addon-cli-mcp` | Local addon providing MCP server | [Link](https://www.npmjs.com/package/@local-labs/local-addon-cli-mcp) |
-| `@local-labs/local-cli` | CLI tool (`lwp` command) | [Link](https://www.npmjs.com/package/@local-labs/local-cli) |
-
-## Quick Start
-
-### CLI Installation
+## Installation
 
 ```bash
 npm install -g @local-labs/local-cli
+```
 
+## Quick Start
+
+```bash
 # List all sites
 lwp sites list
 
@@ -29,52 +22,139 @@ lwp sites start my-blog
 
 # Run WP-CLI commands
 lwp wp my-blog plugin list
+
+# Export database
+lwp db export my-blog
+
+# Push to WP Engine
+lwp wpe push my-blog
 ```
-
-### AI Tool Integration
-
-The addon enables AI tools like Claude Code to manage your WordPress development sites through the [Model Context Protocol](https://modelcontextprotocol.io/).
 
 ## Features
 
-- **40 MCP Tools**: Complete site management, WP-CLI, database, cloud backups, and WP Engine sync
-- **Human-Friendly CLI**: Familiar command-line patterns (`lwp sites list`)
-- **Zero-Friction Install**: CLI automatically installs and activates the addon
-- **Dual Transport**: stdio for Claude Code, SSE for web-based AI tools
+- **Site Management**: Create, start, stop, delete, clone, export/import sites
+- **WP-CLI Integration**: Run any WP-CLI command against your sites
+- **Database Operations**: Export, import, open Adminer
+- **Cloud Backups**: Create, restore, list backups (Dropbox, Google Drive)
+- **WP Engine Sync**: Push/pull sites to/from WP Engine
+- **Blueprints**: Save and reuse site configurations
+
+## Requirements
+
+- [Local](https://localwp.com) must be installed and running
+- Node.js 18+
 
 ## Documentation
 
-- [CLI Usage](docs/CLI-USAGE.md)
-- [AI Tool Setup](docs/AI-TOOL-SETUP.md)
-- [RFC-002: CLI Design](docs/RFC-002-CLI.md)
+- [CLI Usage Guide](docs/CLI-USAGE.md) - Full command reference
+- [AI Assistant Context](docs/AI-CONTEXT.md) - For AI coding assistants
+
+## Command Reference
+
+### Sites
+
+| Command | Description |
+|---------|-------------|
+| `lwp sites list` | List all sites |
+| `lwp sites get <site>` | Get site details |
+| `lwp sites start <site>` | Start a site |
+| `lwp sites stop <site>` | Stop a site |
+| `lwp sites restart <site>` | Restart a site |
+| `lwp sites create <name>` | Create a new site |
+| `lwp sites delete <site>` | Delete a site |
+| `lwp sites clone <site> <newName>` | Clone a site |
+| `lwp sites export <site>` | Export to zip |
+| `lwp sites import <zipFile>` | Import from zip |
+| `lwp sites open <site>` | Open in browser |
+| `lwp sites ssl <site>` | Trust SSL certificate |
+| `lwp sites php <site> <version>` | Change PHP version |
+| `lwp sites xdebug <site>` | Toggle Xdebug |
+| `lwp sites logs <site>` | View site logs |
+| `lwp sites rename <site> <newName>` | Rename a site |
+
+### WP-CLI
+
+```bash
+lwp wp <site> <command...>
+
+# Examples
+lwp wp my-blog plugin list
+lwp wp my-blog option get siteurl
+lwp wp my-blog user list --format=json
+```
+
+### Database
+
+| Command | Description |
+|---------|-------------|
+| `lwp db export <site>` | Export database to SQL |
+| `lwp db import <site> <sqlFile>` | Import SQL file |
+| `lwp db adminer <site>` | Open Adminer UI |
+
+### Backups
+
+| Command | Description |
+|---------|-------------|
+| `lwp backups status` | Check backup service status |
+| `lwp backups list <site>` | List backups |
+| `lwp backups create <site>` | Create backup |
+| `lwp backups restore <site> <id>` | Restore backup |
+| `lwp backups delete <site> <id>` | Delete backup |
+
+### WP Engine
+
+| Command | Description |
+|---------|-------------|
+| `lwp wpe status` | Check WPE connection |
+| `lwp wpe login` | Authenticate with WPE |
+| `lwp wpe logout` | Logout from WPE |
+| `lwp wpe sites` | List WPE sites |
+| `lwp wpe link <site>` | Show WPE connection |
+| `lwp wpe push <site>` | Push to WPE |
+| `lwp wpe pull <site>` | Pull from WPE |
+| `lwp wpe history <site>` | View sync history |
+| `lwp wpe diff <site>` | Show file differences |
+
+### Blueprints
+
+| Command | Description |
+|---------|-------------|
+| `lwp blueprints list` | List blueprints |
+| `lwp blueprints save <site> <name>` | Save as blueprint |
+
+### Services
+
+| Command | Description |
+|---------|-------------|
+| `lwp services list` | List available services |
+| `lwp services info <service>` | Get service details |
+
+## Global Options
+
+| Option | Description |
+|--------|-------------|
+| `--json` | Output in JSON format |
+| `--quiet` | Minimal output |
+| `--no-color` | Disable colors |
 
 ## Development
 
 ```bash
+# Clone the repository
+git clone https://github.com/getflywheel/local-addon-cli.git
+cd local-addon-cli
+
 # Install dependencies
 npm install
 
-# Build all packages
+# Build
 npm run build
 
 # Run tests
 npm test
 
-# Build specific package
-npm run build:addon
-npm run build:cli
-```
-
-## Repository Structure
-
-```
-local-addon-cli-mcp/
-├── packages/
-│   ├── addon/          # Local addon (MCP server)
-│   └── cli/            # CLI tool (lwp command)
-├── docs/               # Documentation
-├── package.json        # Workspace root
-└── tsconfig.base.json  # Shared TypeScript config
+# Run E2E tests (requires Local running)
+npm run test:e2e -w packages/cli
 ```
 
 ## License

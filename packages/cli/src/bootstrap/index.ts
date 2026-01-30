@@ -140,12 +140,12 @@ export async function restartLocal(): Promise<void> {
  * Addon directory name in Local's addons folder
  * Local uses @scope-name format (replaces / with -)
  */
-const ADDON_DIR_NAME = '@local-labs-local-addon-cli-mcp';
+const ADDON_DIR_NAME = '@local-labs-local-addon-cli';
 
 /**
  * Addon key in enabled-addons.json (package name)
  */
-const ADDON_ENABLED_KEY = '@local-labs/local-addon-cli-mcp';
+const ADDON_ENABLED_KEY = '@local-labs/local-addon-cli';
 
 /**
  * Get the addon installation path
@@ -349,7 +349,7 @@ export async function installAddon(options: {
     // Try to fetch from GitHub first
     let release: GitHubRelease | null = null;
     try {
-      release = await fetchLatestRelease('getflywheel/local-addon-cli-mcp');
+      release = await fetchLatestRelease('getflywheel/local-addon-cli');
     } catch {
       // GitHub release not available - try dev mode
     }
@@ -400,7 +400,7 @@ export async function installAddon(options: {
       } else {
         throw new Error(
           'Addon release not found on GitHub and no local development addon available. ' +
-          'Visit https://github.com/getflywheel/local-addon-cli-mcp for installation instructions.'
+          'Visit https://github.com/getflywheel/local-addon-cli for installation instructions.'
         );
       }
     }

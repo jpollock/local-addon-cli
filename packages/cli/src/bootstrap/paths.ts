@@ -77,4 +77,4 @@ export function getLocalPaths(): LocalPaths {
 /**
  * Get the addon package name
  */
-export const ADDON_PACKAGE_NAME = '@local-labs/local-addon-cli-mcp';
+export const ADDON_PACKAGE_NAME = '@local-labs/local-addon-cli';
