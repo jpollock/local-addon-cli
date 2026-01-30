@@ -13,9 +13,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { exec, execSync } from 'child_process';
 import { promisify } from 'util';
-import { pipeline } from 'stream/promises';
-import { createWriteStream } from 'fs';
-import * as tar from 'tar';
 import { getLocalPaths, LocalPaths } from './paths';
 
 const execAsync = promisify(exec);
@@ -221,104 +218,43 @@ export function activateAddon(): boolean {
 }
 
 /**
- * GitHub release asset info
+ * Copy a directory recursively
  */
-interface GitHubAsset {
-  name: string;
-  browser_download_url: string;
-}
+function copyDirSync(src: string, dest: string): void {
+  fs.mkdirSync(dest, { recursive: true });
 
-interface GitHubRelease {
-  tag_name: string;
-  assets: GitHubAsset[];
-}
+  const entries = fs.readdirSync(src, { withFileTypes: true });
 
-/**
- * Allowed domains for downloading addon packages
- * Security: Prevents supply chain attacks via malicious redirect URLs
- */
-const ALLOWED_DOWNLOAD_DOMAINS = [
-  'github.com',
-  'objects.githubusercontent.com',
-  'github-releases.githubusercontent.com',
-];
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
 
-/**
- * Validate that a download URL is from a trusted domain
- */
-function isAllowedDownloadUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return ALLOWED_DOWNLOAD_DOMAINS.some(
-      (domain) => parsed.hostname === domain || parsed.hostname.endsWith(`.${domain}`)
-    );
-  } catch {
-    return false;
+    if (entry.isDirectory()) {
+      copyDirSync(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
   }
 }
 
 /**
- * Fetch the latest release from GitHub
+ * Find the bundled addon path (included in npm package)
+ * Located at addon-dist/ relative to the CLI package root
  */
-async function fetchLatestRelease(repo: string): Promise<GitHubRelease> {
-  const response = await fetch(`https://api.github.com/repos/${repo}/releases/latest`, {
-    headers: {
-      Accept: 'application/vnd.github.v3+json',
-      'User-Agent': 'local-cli',
-    },
-  });
+function findBundledAddonPath(): string | null {
+  // From lib/bootstrap/ -> addon-dist/
+  const bundledPath = path.resolve(__dirname, '..', '..', 'addon-dist');
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch release: ${response.status} ${response.statusText}`);
+  if (fs.existsSync(path.join(bundledPath, 'package.json'))) {
+    return bundledPath;
   }
 
-  return response.json() as Promise<GitHubRelease>;
-}
-
-/**
- * Download a file from URL to destination
- */
-async function downloadFile(url: string, dest: string): Promise<void> {
-  const response = await fetch(url, {
-    headers: { 'User-Agent': 'local-cli' },
-  });
-
-  if (!response.ok || !response.body) {
-    throw new Error(`Failed to download: ${response.status}`);
-  }
-
-  // Create directory if needed
-  const dir = path.dirname(dest);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-
-  // Use stream pipeline for efficient download
-  const fileStream = createWriteStream(dest);
-  await pipeline(response.body!, fileStream);
-}
-
-/**
- * Extract a .tgz file to a directory
- * Uses Node.js tar library to avoid command injection vulnerabilities
- */
-async function extractTgz(tgzPath: string, destDir: string): Promise<void> {
-  // Create destination directory
-  if (!fs.existsSync(destDir)) {
-    fs.mkdirSync(destDir, { recursive: true });
-  }
-
-  // Use Node.js tar library (no shell execution, no command injection risk)
-  await tar.extract({
-    file: tgzPath,
-    cwd: destDir,
-    strip: 1,
-  });
+  return null;
 }
 
 /**
  * Find the local development addon path (for dev mode)
- * Looks for the addon relative to the CLI package
+ * Looks for the addon relative to the CLI package in monorepo
  */
 function findDevAddonPath(): string | null {
   // Check if we're in the monorepo structure
@@ -334,7 +270,7 @@ function findDevAddonPath(): string | null {
 }
 
 /**
- * Install the addon from GitHub Releases or create dev symlink
+ * Install the addon from bundled package or create dev symlink
  */
 export async function installAddon(options: {
   onStatus?: (status: string) => void;
@@ -344,63 +280,33 @@ export async function installAddon(options: {
   const addonPath = getAddonPath();
 
   try {
-    log('Fetching latest addon release...');
-
-    // Try to fetch from GitHub first
-    let release: GitHubRelease | null = null;
-    try {
-      release = await fetchLatestRelease('getflywheel/local-addon-cli');
-    } catch {
-      // GitHub release not available - try dev mode
+    // Ensure addons directory exists
+    if (!fs.existsSync(paths.addonsDir)) {
+      fs.mkdirSync(paths.addonsDir, { recursive: true });
     }
 
-    if (release) {
-      // Find the .tgz asset
-      const tgzAsset = release.assets.find((a) => a.name.endsWith('.tgz'));
-      if (!tgzAsset) {
-        throw new Error('No .tgz asset found in release');
-      }
+    // Try bundled addon first (production - included in npm package)
+    const bundledAddonPath = findBundledAddonPath();
 
-      log(`Downloading ${release.tag_name}...`);
+    if (bundledAddonPath) {
+      log('Installing bundled addon...');
 
-      // Security: Validate download URL is from trusted domain
-      if (!isAllowedDownloadUrl(tgzAsset.browser_download_url)) {
-        throw new Error(
-          `Download URL not from trusted domain: ${tgzAsset.browser_download_url}`
-        );
-      }
-
-      // Download to temp location
-      const tempPath = path.join(paths.dataDir, 'addon-download.tgz');
-      await downloadFile(tgzAsset.browser_download_url, tempPath);
-
-      log('Extracting addon...');
-
-      // Extract to addons directory
-      await extractTgz(tempPath, addonPath);
-
-      // Clean up temp file
-      fs.unlinkSync(tempPath);
+      // Copy bundled addon to Local's addons directory
+      copyDirSync(bundledAddonPath, addonPath);
 
       log('Addon installed successfully.');
     } else {
-      // Try development mode - create symlink to local addon
+      // Try development mode - create symlink to local addon in monorepo
       const devAddonPath = findDevAddonPath();
 
       if (devAddonPath) {
-        log('GitHub release not found. Using development addon...');
-
-        // Create symlink
-        if (!fs.existsSync(paths.addonsDir)) {
-          fs.mkdirSync(paths.addonsDir, { recursive: true });
-        }
+        log('Using development addon (symlink)...');
 
         fs.symlinkSync(devAddonPath, addonPath);
         log(`Created symlink: ${addonPath} -> ${devAddonPath}`);
       } else {
         throw new Error(
-          'Addon release not found on GitHub and no local development addon available. ' +
-          'Visit https://github.com/getflywheel/local-addon-cli for installation instructions.'
+          'Addon not found. Please reinstall the CLI package: npm install -g @local-labs/local-cli'
         );
       }
     }

@@ -4,7 +4,12 @@ node_modules/
 # Build output
 lib/
 dist/
+addon-dist/
 *.tgz
+
+# Development artifacts
+plans/
+todos/
 
 # Coverage
 coverage/
