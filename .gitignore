@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output
+lib/
+dist/
+*.tgz
+
+# Coverage
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.swp
+*.swo
+.vscode/
+
+# Jekyll
+_site/
+.jekyll-cache/
+.jekyll-metadata
+Gemfile.lock
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Claude Code
+.claude/

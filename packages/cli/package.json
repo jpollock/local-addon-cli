@@ -1,0 +1,58 @@
+{
+  "name": "@local-labs/local-cli",
+  "version": "0.1.0",
+  "description": "Command-line interface for Local WordPress development",
+  "main": "lib/index.js",
+  "bin": {
+    "lwp": "./bin/lwp.js"
+  },
+  "scripts": {
+    "build": "npm run clean && tsc",
+    "watch": "tsc --watch",
+    "clean": "rm -rf lib",
+    "lint": "eslint src --ext .ts --max-warnings=0",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "keywords": [
+    "local",
+    "cli",
+    "wordpress",
+    "development",
+    "wp-cli"
+  ],
+  "author": "Jeremy Pollock <jpollock911@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/local-labs/local-addon-cli-mcp.git",
+    "directory": "packages/cli"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "lib/",
+    "bin/",
+    "README.md"
+  ],
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "cli-table3": "^0.6.5",
+    "commander": "^12.1.0",
+    "ora": "^5.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.2.5",
+    "typescript": "^5.0.0"
+  }
+}
