@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.2] - 2025-01-30
+
+### Added
+
+- `lwp update` command for self-updating the CLI
+- `lwp update --check` to check for updates without installing
+- Automatic update check on startup (cached for 24 hours)
+- `lwp skill install` command for Claude Code integration
+- Claude Code skill for AI assistant support
+- Mermaid architecture diagrams in documentation
+
+### Changed
+
+- Addon is now bundled in the CLI npm package (no separate download)
+- MCP server disabled (CLI-only mode)
+- Preferences UI disabled in Local
+
+### Fixed
+
+- Package name updated to `@local-labs-jpollock/local-cli`
+
 ## [0.0.1] - 2025-01-30
 
 ### Added
@@ -34,5 +55,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive test suite (unit and E2E)
 - Monorepo structure with addon and CLI packages
 
-[Unreleased]: https://github.com/getflywheel/local-addon-cli/compare/v0.0.1...HEAD
-[0.0.1]: https://github.com/getflywheel/local-addon-cli/releases/tag/v0.0.1
+[Unreleased]: https://github.com/jpollock/local-addon-cli/compare/v0.0.2...HEAD
+[0.0.2]: https://github.com/jpollock/local-addon-cli/compare/v0.0.1...v0.0.2
+[0.0.1]: https://github.com/jpollock/local-addon-cli/releases/tag/v0.0.1
