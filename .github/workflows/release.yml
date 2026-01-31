@@ -15,7 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      id-token: write  # Required for npm provenance/OIDC
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,7 +31,9 @@ jobs:
       - run: npm test
 
       - name: Publish to npm
-        run: npm publish -w packages/cli --access public --provenance
+        run: npm publish -w packages/cli --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Package addon
         run: npm pack
