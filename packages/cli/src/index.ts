@@ -12,6 +12,7 @@ import ora from 'ora';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { execSync } from 'child_process';
 import { bootstrap, ConnectionInfo } from './bootstrap';
 import { GraphQLClient } from './client';
 import {
@@ -24,10 +25,111 @@ import {
   SiteInfo,
 } from './formatters';
 
+// Package info
+const PACKAGE_NAME = '@local-labs-jpollock/local-cli';
+const CURRENT_VERSION = require('../package.json').version;
+const UPDATE_CHECK_FILE = path.join(os.homedir(), '.lwp-update-check');
+const UPDATE_CHECK_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
+
 const program = new Command();
 
 // Store client globally after bootstrap
 let client: GraphQLClient | null = null;
+
+// ===========================================
+// Update Check Functions
+// ===========================================
+
+interface UpdateCheckCache {
+  lastCheck: number;
+  latestVersion: string | null;
+}
+
+/**
+ * Read update check cache
+ */
+function readUpdateCache(): UpdateCheckCache | null {
+  try {
+    if (fs.existsSync(UPDATE_CHECK_FILE)) {
+      return JSON.parse(fs.readFileSync(UPDATE_CHECK_FILE, 'utf-8'));
+    }
+  } catch {
+    // Ignore cache read errors
+  }
+  return null;
+}
+
+/**
+ * Write update check cache
+ */
+function writeUpdateCache(cache: UpdateCheckCache): void {
+  try {
+    fs.writeFileSync(UPDATE_CHECK_FILE, JSON.stringify(cache));
+  } catch {
+    // Ignore cache write errors
+  }
+}
+
+/**
+ * Fetch latest version from npm registry
+ */
+async function fetchLatestVersion(): Promise<string | null> {
+  try {
+    const response = await fetch(`https://registry.npmjs.org/${PACKAGE_NAME}/latest`, {
+      headers: { 'Accept': 'application/json' },
+    });
+    if (response.ok) {
+      const data = await response.json() as { version: string };
+      return data.version;
+    }
+  } catch {
+    // Network error, silently ignore
+  }
+  return null;
+}
+
+/**
+ * Compare semver versions (simple comparison)
+ */
+function isNewerVersion(latest: string, current: string): boolean {
+  const latestParts = latest.split('.').map(Number);
+  const currentParts = current.split('.').map(Number);
+
+  for (let i = 0; i < 3; i++) {
+    if ((latestParts[i] || 0) > (currentParts[i] || 0)) return true;
+    if ((latestParts[i] || 0) < (currentParts[i] || 0)) return false;
+  }
+  return false;
+}
+
+/**
+ * Check for updates (uses cache to avoid frequent checks)
+ */
+async function checkForUpdates(): Promise<void> {
+  const cache = readUpdateCache();
+  const now = Date.now();
+
+  // Skip if checked recently
+  if (cache && (now - cache.lastCheck) < UPDATE_CHECK_INTERVAL) {
+    if (cache.latestVersion && isNewerVersion(cache.latestVersion, CURRENT_VERSION)) {
+      console.log(`\n\x1b[33mUpdate available: ${CURRENT_VERSION} → ${cache.latestVersion}\x1b[0m`);
+      console.log(`Run: \x1b[36mlwp update\x1b[0m\n`);
+    }
+    return;
+  }
+
+  // Fetch latest version (non-blocking, fire and forget for cache)
+  fetchLatestVersion().then((latestVersion) => {
+    writeUpdateCache({ lastCheck: now, latestVersion });
+
+    if (latestVersion && isNewerVersion(latestVersion, CURRENT_VERSION)) {
+      console.log(`\n\x1b[33mUpdate available: ${CURRENT_VERSION} → ${latestVersion}\x1b[0m`);
+      console.log(`Run: \x1b[36mlwp update\x1b[0m\n`);
+    }
+  }).catch(() => {
+    // Silently ignore update check failures
+  });
+}
 
 /**
  * Ensure we're connected to Local's GraphQL server
@@ -98,13 +200,59 @@ async function runSiteCommand<T>(
 program
   .name('lwp')
   .description('Command-line interface for Local WordPress development')
-  .version('0.1.0');
+  .version(CURRENT_VERSION);
 
 // Global options
 program
   .option('--json', 'Output results as JSON')
   .option('--quiet', 'Minimal output (IDs/names only)')
   .option('--no-color', 'Disable colored output');
+
+// ===========================================
+// Update Command
+// ===========================================
+
+program
+  .command('update')
+  .description('Update the CLI to the latest version')
+  .option('--check', 'Only check for updates, do not install')
+  .action(async (options) => {
+    if (options.check) {
+      const spinner = ora('Checking for updates...').start();
+      const latestVersion = await fetchLatestVersion();
+
+      if (!latestVersion) {
+        spinner.fail('Could not check for updates');
+        process.exit(1);
+      }
+
+      if (isNewerVersion(latestVersion, CURRENT_VERSION)) {
+        spinner.succeed(`Update available: ${CURRENT_VERSION} → ${latestVersion}`);
+        console.log(`\nRun \x1b[36mlwp update\x1b[0m to install`);
+      } else {
+        spinner.succeed(`You're on the latest version (${CURRENT_VERSION})`);
+      }
+      return;
+    }
+
+    const spinner = ora('Updating CLI...').start();
+
+    try {
+      // Run npm update
+      execSync(`npm update -g ${PACKAGE_NAME}`, { stdio: 'pipe' });
+      spinner.succeed('CLI updated successfully');
+
+      // Check new version
+      const newVersion = await fetchLatestVersion();
+      if (newVersion) {
+        console.log(`\nUpdated to version ${newVersion}`);
+      }
+    } catch (error: any) {
+      spinner.fail('Update failed');
+      console.error(formatError('Try running: npm update -g ' + PACKAGE_NAME));
+      process.exit(1);
+    }
+  });
 
 // ===========================================
 // Sites Commands
@@ -1370,6 +1518,16 @@ program
         process.exit(1);
     }
   });
+
+// Check for updates (skip for update command itself and quiet mode)
+const args = process.argv.slice(2);
+const isUpdateCommand = args[0] === 'update';
+const isQuiet = args.includes('--quiet') || args.includes('--json');
+
+if (!isUpdateCommand && !isQuiet) {
+  // Fire and forget - don't block startup
+  checkForUpdates().catch(() => {});
+}
 
 // Parse and execute
 program.parse();
