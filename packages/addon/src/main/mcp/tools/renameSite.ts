@@ -53,7 +53,6 @@ export async function renameSite(
   const oldName = site.name;
 
   try {
-
     // Check if updateSite method exists on siteData
     if (!services.siteData.updateSite) {
       return {

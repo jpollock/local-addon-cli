@@ -272,9 +272,11 @@ function findDevAddonPath(): string | null {
 /**
  * Install the addon from bundled package or create dev symlink
  */
-export async function installAddon(options: {
-  onStatus?: (status: string) => void;
-} = {}): Promise<{ success: boolean; error?: string; needsRestart: boolean }> {
+export async function installAddon(
+  options: {
+    onStatus?: (status: string) => void;
+  } = {}
+): Promise<{ success: boolean; error?: string; needsRestart: boolean }> {
   const log = options.onStatus || (() => {});
   const paths = getLocalPaths();
   const addonPath = getAddonPath();
@@ -327,9 +329,11 @@ export async function installAddon(options: {
 /**
  * Ensure addon is installed and activated
  */
-export async function ensureAddon(options: {
-  onStatus?: (status: string) => void;
-} = {}): Promise<{ success: boolean; error?: string; needsRestart: boolean }> {
+export async function ensureAddon(
+  options: {
+    onStatus?: (status: string) => void;
+  } = {}
+): Promise<{ success: boolean; error?: string; needsRestart: boolean }> {
   const log = options.onStatus || (() => {});
 
   // Check if addon is installed
@@ -436,11 +440,13 @@ function delay(ms: number): Promise<void> {
  * Main bootstrap function
  * Ensures addon is installed, Local is running, and GraphQL is accessible
  */
-export async function bootstrap(options: {
-  verbose?: boolean;
-  skipAddonInstall?: boolean;
-  onStatus?: (status: string) => void;
-} = {}): Promise<BootstrapResult> {
+export async function bootstrap(
+  options: {
+    verbose?: boolean;
+    skipAddonInstall?: boolean;
+    onStatus?: (status: string) => void;
+  } = {}
+): Promise<BootstrapResult> {
   const actions: string[] = [];
   const log = (msg: string) => {
     actions.push(msg);

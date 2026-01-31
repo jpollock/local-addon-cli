@@ -4,7 +4,12 @@
  */
 
 import { McpToolDefinition, McpToolResult, LocalServices } from '../../../common/types';
-import { validateRequiredParam, findSiteOrError, isValidSqlPath, createErrorResult } from './helpers';
+import {
+  validateRequiredParam,
+  findSiteOrError,
+  isValidSqlPath,
+  createErrorResult,
+} from './helpers';
 import * as fs from 'fs';
 
 export const importDatabaseDefinition: McpToolDefinition = {
