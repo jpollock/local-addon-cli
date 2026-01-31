@@ -13,7 +13,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { execSync } from 'child_process';
-import { bootstrap, ConnectionInfo } from './bootstrap';
+import { bootstrap } from './bootstrap';
 import { GraphQLClient } from './client';
 import {
   formatSiteList,
@@ -22,7 +22,6 @@ import {
   formatError,
   getOutputFormat,
   FormatterOptions,
-  SiteInfo,
 } from './formatters';
 
 // Package info

@@ -3719,7 +3719,8 @@ async function stopMcpServer(logger: any): Promise<void> {
 /**
  * Register IPC handlers for renderer communication
  */
-function registerIpcHandlers(services: LocalServices, logger: any): void {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _registerIpcHandlers(_services: LocalServices, _logger: any): void {
   // Get MCP server status
   ipcMain.handle('mcp:getStatus', async () => {
     if (!mcpServer) {
@@ -3739,7 +3740,7 @@ function registerIpcHandlers(services: LocalServices, logger: any): void {
   // Start MCP server
   ipcMain.handle('mcp:start', async () => {
     try {
-      await startMcpServer(services, logger);
+      await startMcpServer(_services, _logger);
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message };
@@ -3749,7 +3750,7 @@ function registerIpcHandlers(services: LocalServices, logger: any): void {
   // Stop MCP server
   ipcMain.handle('mcp:stop', async () => {
     try {
-      await stopMcpServer(logger);
+      await stopMcpServer(_logger);
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message };
@@ -3759,8 +3760,8 @@ function registerIpcHandlers(services: LocalServices, logger: any): void {
   // Restart MCP server
   ipcMain.handle('mcp:restart', async () => {
     try {
-      await stopMcpServer(logger);
-      await startMcpServer(services, logger);
+      await stopMcpServer(_logger);
+      await startMcpServer(_services, _logger);
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message };
@@ -3780,7 +3781,7 @@ function registerIpcHandlers(services: LocalServices, logger: any): void {
     }
   });
 
-  logger.info(
+  _logger.info(
     `[${ADDON_NAME}] Registered IPC handlers: mcp:getStatus, mcp:getConnectionInfo, mcp:start, mcp:stop, mcp:restart, mcp:regenerateToken`
   );
 }
@@ -3801,7 +3802,8 @@ export default function (_context: LocalMain.AddonMainContext): void {
     localLogger.info(`[${ADDON_NAME}] Registered GraphQL: 29 tools (Phase 1-11b)`);
 
     // Start MCP server (for AI tools)
-    const localServices: LocalServices = {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _localServices: LocalServices = {
       siteData: services.siteData,
       siteProcessManager: services.siteProcessManager,
       wpCli: services.wpCli,
@@ -3820,8 +3822,8 @@ export default function (_context: LocalMain.AddonMainContext): void {
 
     // MCP server disabled - CLI-only mode
     // To enable MCP server for AI tool integration, uncomment the following:
-    // startMcpServer(localServices, localLogger);
-    // registerIpcHandlers(localServices, localLogger);
+    // startMcpServer(_localServices, localLogger);
+    // _registerIpcHandlers(_localServices, localLogger);
 
     localLogger.info(`[${ADDON_NAME}] Successfully initialized (CLI-only mode)`);
   } catch (error: any) {

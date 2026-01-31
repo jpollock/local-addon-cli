@@ -43,7 +43,8 @@ interface McpPreferencesPanelState {
 }
 
 // MCP Preferences Panel Component (Class-based for Local compatibility)
-class McpPreferencesPanel extends React.Component<
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+class _McpPreferencesPanel extends React.Component<
   McpPreferencesPanelProps,
   McpPreferencesPanelState
 > {
