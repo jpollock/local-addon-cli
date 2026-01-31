@@ -6,6 +6,26 @@ This document provides context for AI coding assistants working with the Local C
 
 Local CLI (`lwp`) is a command-line interface for [Local](https://localwp.com), a WordPress local development environment. The CLI communicates with a running Local application via GraphQL.
 
+```mermaid
+flowchart TB
+    subgraph "Development Workflow"
+        A[Create Site] --> B[Configure]
+        B --> C[Develop]
+        C --> D[Test]
+        D --> E{Ready?}
+        E -->|No| C
+        E -->|Yes| F[Deploy]
+    end
+
+    subgraph "lwp Commands"
+        A -.-> A1["lwp sites create"]
+        B -.-> B1["lwp wp ... plugin install"]
+        C -.-> C1["lwp sites open --admin"]
+        D -.-> D1["lwp wp ... test"]
+        F -.-> F1["lwp wpe push"]
+    end
+```
+
 ## Prerequisites
 
 - Local application must be installed and running

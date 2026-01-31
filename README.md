@@ -1,15 +1,43 @@
 # Local CLI
 
-[![CI](https://github.com/getflywheel/local-addon-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/getflywheel/local-addon-cli/actions/workflows/ci.yml)
+[![CI](https://github.com/jpollock/local-addon-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/jpollock/local-addon-cli/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/@local-labs-jpollock/local-cli.svg)](https://www.npmjs.com/package/@local-labs-jpollock/local-cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Command-line interface for [Local](https://localwp.com) WordPress development.
+
+## Architecture
+
+```mermaid
+graph LR
+    subgraph "Your Terminal"
+        CLI[lwp CLI]
+    end
+
+    subgraph "Local App"
+        GQL[GraphQL Server]
+        Addon[CLI Addon]
+        Sites[(WordPress Sites)]
+    end
+
+    CLI -->|GraphQL| GQL
+    GQL --> Addon
+    Addon -->|Manages| Sites
+```
 
 ## Installation
 
 ```bash
 npm install -g @local-labs-jpollock/local-cli
 ```
+
+### AI Assistant Integration (Claude Code)
+
+```bash
+lwp skill install
+```
+
+This installs a Claude Code skill so AI assistants can manage your Local sites.
 
 ## Quick Start
 
@@ -141,7 +169,7 @@ lwp wp my-blog user list --format=json
 
 ```bash
 # Clone the repository
-git clone https://github.com/getflywheel/local-addon-cli.git
+git clone https://github.com/jpollock/local-addon-cli.git
 cd local-addon-cli
 
 # Install dependencies
