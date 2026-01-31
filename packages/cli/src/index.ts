@@ -200,7 +200,8 @@ async function runSiteCommand<T>(
 program
   .name('lwp')
   .description('Command-line interface for Local WordPress development')
-  .version(CURRENT_VERSION);
+  .version(CURRENT_VERSION)
+  .enablePositionalOptions();
 
 // Global options
 program
@@ -652,6 +653,8 @@ sites
 program
   .command('wp <site> [args...]')
   .description('Run WP-CLI commands against a site')
+  .allowUnknownOption()
+  .passThroughOptions()
   .action(async (site, args) => {
     const globalOpts = program.opts() as FormatterOptions;
 
