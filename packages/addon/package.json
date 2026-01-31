@@ -1,7 +1,7 @@
 {
   "name": "@local-labs-jpollock/local-addon-cli",
   "productName": "Local CLI",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Command-line interface for Local WordPress development",
   "main": "lib/main/index.js",
   "renderer": "lib/renderer/index.js",
