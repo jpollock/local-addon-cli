@@ -9,11 +9,11 @@ import * as os from 'os';
  * Blocked WP-CLI commands that could allow arbitrary code execution
  */
 export const BLOCKED_WP_COMMANDS = [
-  'eval',        // Execute arbitrary PHP code
-  'eval-file',   // Execute PHP from file
-  'shell',       // Interactive PHP shell
-  'db query',    // Raw SQL execution
-  'db cli',      // MySQL CLI access
+  'eval', // Execute arbitrary PHP code
+  'eval-file', // Execute PHP from file
+  'shell', // Interactive PHP shell
+  'db query', // Raw SQL execution
+  'db cli', // MySQL CLI access
 ];
 
 /**
@@ -40,12 +40,7 @@ export function isValidFilePath(filePath: string, allowedDirs?: string[]): boole
 
   // Default allowed directories: home, tmp, and common paths
   const homeDir = os.homedir();
-  const defaultAllowed = [
-    homeDir,
-    os.tmpdir(),
-    '/tmp',
-    '/var/tmp',
-  ];
+  const defaultAllowed = [homeDir, os.tmpdir(), '/tmp', '/var/tmp'];
 
   const allowedDirectories = allowedDirs || defaultAllowed;
 
@@ -100,10 +95,7 @@ export function createErrorResult(message: string): McpErrorResult {
  * Validate that a required parameter is present
  * Returns an error result if missing, null if valid
  */
-export function validateRequiredParam(
-  value: unknown,
-  paramName: string
-): McpErrorResult | null {
+export function validateRequiredParam(value: unknown, paramName: string): McpErrorResult | null {
   if (!value) {
     return createErrorResult(`Error: ${paramName} parameter is required`);
   }
@@ -158,9 +150,7 @@ export function findSiteOrError(
   if (!site) {
     const siteNames = getAllSiteNames(siteData);
     return {
-      error: createErrorResult(
-        `Site not found: "${query}". Available sites: ${siteNames}`
-      ),
+      error: createErrorResult(`Site not found: "${query}". Available sites: ${siteNames}`),
     };
   }
   return { site };

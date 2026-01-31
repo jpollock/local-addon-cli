@@ -4,7 +4,12 @@
  */
 
 import { McpToolDefinition, McpToolResult, LocalServices } from '../../../common/types';
-import { validateRequiredParam, findSiteOrError, isBlockedWpCommand, createErrorResult } from './helpers';
+import {
+  validateRequiredParam,
+  findSiteOrError,
+  isBlockedWpCommand,
+  createErrorResult,
+} from './helpers';
 
 export const wpCliDefinition: McpToolDefinition = {
   name: 'wp_cli',

@@ -12,10 +12,12 @@
     "build:addon": "npm run build -w packages/addon",
     "build:cli": "npm run build -w packages/cli",
     "bundle:addon": "node scripts/bundle-addon.js",
-    "test": "npm run test --workspaces --if-present",
-    "test:coverage": "npm run test:coverage --workspaces --if-present",
+    "test": "npm run build && npm run test --workspaces --if-present",
+    "test:coverage": "npm run build && npm run test:coverage --workspaces --if-present",
     "test:addon": "npm run test -w packages/addon",
     "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "format:check": "npm run format:check --workspaces --if-present",
     "clean": "npm run clean --workspaces --if-present && rm -rf packages/cli/addon-dist"
   },
   "repository": {
