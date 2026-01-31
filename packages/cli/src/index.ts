@@ -779,8 +779,8 @@ sites
 program
   .command('wp <site> [args...]')
   .description('Run WP-CLI commands against a site')
-  .option('--with-plugins', 'Load plugins (default: plugins are skipped for safety)')
-  .option('--with-themes', 'Load themes (default: themes are skipped for safety)')
+  .option('--with-plugins', 'Load plugins (must come before site name)')
+  .option('--with-themes', 'Load themes (must come before site name)')
   .allowUnknownOption()
   .passThroughOptions()
   .action(async (site, args, cmdOptions) => {

@@ -47,11 +47,17 @@ lwp wp <site> search-replace 'old' 'new' --dry-run
 
 **Plugin-provided CLI commands** (e.g., `wp migrate`):
 
-By default, plugins are skipped for safety. Use `--with-plugins` to load them:
+By default, plugins are skipped for safety. Use `--with-plugins` to load them.
+
+**Important:** Options must come BEFORE the site name:
 
 ```bash
-lwp wp <site> --with-plugins migrate push <target>
-lwp wp <site> --with-plugins migrate pull <source>
+# Correct - option before site:
+lwp wp --with-plugins <site> migrate push <target>
+lwp wp --with-plugins <site> migrate pull <source>
+
+# Wrong - option will be passed to WP-CLI:
+lwp wp <site> --with-plugins migrate push  # DON'T DO THIS
 ```
 
 ### Database Operations
