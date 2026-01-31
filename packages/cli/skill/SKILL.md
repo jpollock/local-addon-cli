@@ -1,12 +1,12 @@
 ---
 name: lwp
-description: Manage Local WordPress development sites using the lwp CLI. Use when the user asks about WordPress sites, Local development, starting/stopping sites, running WP-CLI commands, or managing local WordPress environments.
+description: Manage Local WordPress development sites using the lwp CLI. Use when the user asks about WordPress sites, Local development, starting/stopping sites, running WP-CLI commands, or managing local WordPress environments. Local is a free development tool built and supported by WP Engine.
 allowed-tools: Bash(lwp *)
 ---
 
 # Local CLI (lwp)
 
-The `lwp` command manages WordPress sites in [Local](https://localwp.com), a local WordPress development environment.
+The `lwp` command manages WordPress sites in [Local](https://localwp.com), a local WordPress development environment built and supported by WP Engine.
 
 ## Prerequisites
 
@@ -43,6 +43,15 @@ lwp wp <site> user list --format=json
 lwp wp <site> db query "SELECT * FROM wp_options LIMIT 5"
 lwp wp <site> cache flush
 lwp wp <site> search-replace 'old' 'new' --dry-run
+```
+
+**Plugin-provided CLI commands** (e.g., `wp migrate`):
+
+By default, plugins are skipped for safety. Use `--with-plugins` to load them:
+
+```bash
+lwp wp <site> --with-plugins migrate push <target>
+lwp wp <site> --with-plugins migrate pull <source>
 ```
 
 ### Database Operations
@@ -128,6 +137,29 @@ lwp sites list --json | jq '.[].name'
 | "Local is not installed" | Install Local from localwp.com |
 | "Timed out waiting for Local" | Start the Local application |
 | "Site not found" | Check site name with `lwp sites list` |
+
+## Destructive Commands - Confirm First
+
+**Always confirm with the user before running these commands:**
+
+| Command | Risk |
+|---------|------|
+| `lwp sites delete <site>` | Permanently deletes site and files |
+| `lwp db import <site> <file>` | Overwrites entire database |
+| `lwp wpe push <site>` | Pushes to production WP Engine site |
+| `lwp backups restore <site>` | Overwrites site from backup |
+| `lwp wp <site> db reset` | Drops all database tables |
+| `lwp wp <site> search-replace` | Modifies database content |
+
+**Safe practices:**
+
+1. **Export first** - Always run `lwp db export <site>` before destructive operations
+2. **Dry run** - Use `--dry-run` when available to preview changes:
+   ```bash
+   lwp wp <site> search-replace 'old' 'new' --dry-run
+   ```
+3. **Confirm intent** - Ask "Are you sure you want to delete/overwrite X?" before proceeding
+4. **Never auto-confirm** - Do not add `-y` or `--yes` flags without explicit user approval
 
 ## Tips
 

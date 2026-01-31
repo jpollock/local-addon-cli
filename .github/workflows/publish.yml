@@ -24,16 +24,13 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          registry-url: 'https://registry.npmjs.org'
 
       - run: npm ci
       - run: npm run build
       - run: npm test
 
-      - name: Publish to npm
-        run: npm publish -w packages/cli --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # npm publish is done manually for now
+      # Run: npm publish -w packages/cli --access public
 
       - name: Package addon
         run: npm pack

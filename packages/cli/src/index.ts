@@ -779,14 +779,23 @@ sites
 program
   .command('wp <site> [args...]')
   .description('Run WP-CLI commands against a site')
+  .option('--with-plugins', 'Load plugins (default: plugins are skipped for safety)')
+  .option('--with-themes', 'Load themes (default: themes are skipped for safety)')
   .allowUnknownOption()
   .passThroughOptions()
-  .action(async (site, args) => {
+  .action(async (site, args, cmdOptions) => {
     const globalOpts = program.opts() as FormatterOptions;
 
     try {
       const gql = await ensureConnected(globalOpts);
       const siteId = await findSiteId(gql, site);
+
+      const input: Record<string, unknown> = {
+        siteId,
+        args,
+        skipPlugins: !cmdOptions.withPlugins,
+        skipThemes: !cmdOptions.withThemes,
+      };
 
       const data = await gql.mutate<{
         wpCli: { success: boolean; output: string; error: string | null };
@@ -796,7 +805,7 @@ program
           wpCli(input: $input) { success output error }
         }
       `,
-        { input: { siteId, args } }
+        { input }
       );
 
       if (!data.wpCli.success) {
