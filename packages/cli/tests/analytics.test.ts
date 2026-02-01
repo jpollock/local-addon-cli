@@ -36,10 +36,10 @@ describe('analytics', () => {
   });
 
   describe('isAnalyticsEnabled', () => {
-    it('returns false when config does not exist', () => {
+    it('returns true when config does not exist (enabled by default)', () => {
       mockFs.existsSync.mockReturnValue(false);
 
-      expect(analytics.isAnalyticsEnabled()).toBe(false);
+      expect(analytics.isAnalyticsEnabled()).toBe(true);
     });
 
     it('returns true when analytics is enabled in config', () => {
@@ -112,11 +112,11 @@ describe('analytics', () => {
       expect(analytics.isAnalyticsEnabled()).toBe(false);
     });
 
-    it('handles corrupted config gracefully', () => {
+    it('handles corrupted config gracefully (defaults to enabled)', () => {
       mockFs.existsSync.mockReturnValue(true);
       mockFs.readFileSync.mockReturnValue('{ invalid json');
 
-      expect(analytics.isAnalyticsEnabled()).toBe(false);
+      expect(analytics.isAnalyticsEnabled()).toBe(true);
     });
   });
 

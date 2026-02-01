@@ -89,7 +89,8 @@ function readConfig(): AnalyticsConfig {
   } catch {
     // Corrupted config, will regenerate
   }
-  return { analytics: { enabled: false, promptedAt: null } };
+  // Default to enabled (opt-out model)
+  return { analytics: { enabled: true, promptedAt: null } };
 }
 
 function writeConfig(config: AnalyticsConfig): void {
@@ -125,46 +126,31 @@ export function hasBeenPrompted(): boolean {
 // ============================================================================
 
 export async function showOptInPrompt(): Promise<boolean> {
-  // Skip prompt in non-interactive mode - default to opt-out
+  // Mark as prompted and keep enabled (opt-out model)
+  const config = readConfig();
+  config.analytics.promptedAt = new Date().toISOString();
+  config.analytics.enabled = true;
+  writeConfig(config);
+
+  // In non-interactive mode, silently enable without message
   if (!process.stdin.isTTY) {
-    const config = readConfig();
-    config.analytics.promptedAt = new Date().toISOString();
-    config.analytics.enabled = false;
-    writeConfig(config);
-    return false;
+    return true;
   }
 
+  // Show informational message about analytics
   console.log('');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('Help improve lwp?');
+  console.log('Anonymous usage analytics enabled');
   console.log('');
-  console.log('We collect anonymous usage data to improve the CLI.');
+  console.log('We collect anonymous data to improve the CLI.');
   console.log('No personal information, site names, or command arguments are collected.');
   console.log('');
-  console.log('You can change this anytime: lwp analytics off');
+  console.log('To disable: lwp analytics off');
   console.log('Learn more: https://github.com/jpollock/local-addon-cli#analytics');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('');
 
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  return new Promise((resolve) => {
-    rl.question('Enable anonymous analytics? [Y/n]: ', (answer) => {
-      rl.close();
-      const enabled = answer.toLowerCase() !== 'n';
-      setAnalyticsEnabled(enabled);
-      console.log('');
-      if (enabled) {
-        console.log('Analytics enabled. Thank you for helping improve lwp!');
-      } else {
-        console.log('Analytics disabled. No data will be collected.');
-      }
-      console.log('');
-      resolve(enabled);
-    });
-  });
+  return true;
 }
 
 // ============================================================================
