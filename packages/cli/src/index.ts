@@ -23,6 +23,7 @@ import {
   getOutputFormat,
   FormatterOptions,
 } from './formatters';
+import * as analytics from './analytics';
 
 // Package info
 const PACKAGE_NAME = '@local-labs-jpollock/local-cli';
@@ -1732,6 +1733,60 @@ wpe
   });
 
 // ===========================================
+// Analytics Commands
+// ===========================================
+
+const analyticsCmd = program.command('analytics').description('Manage anonymous usage analytics');
+
+analyticsCmd
+  .command('status')
+  .description('Show analytics status')
+  .action(() => {
+    const status = analytics.getStatus();
+    console.log(`Analytics: ${status.enabled ? 'enabled' : 'disabled'}`);
+    console.log(`Total events stored: ${status.eventCount}`);
+  });
+
+analyticsCmd
+  .command('on')
+  .description('Enable analytics')
+  .action(() => {
+    analytics.setAnalyticsEnabled(true);
+    console.log('Analytics enabled. Thank you for helping improve lwp!');
+  });
+
+analyticsCmd
+  .command('off')
+  .description('Disable analytics')
+  .action(() => {
+    analytics.setAnalyticsEnabled(false);
+    console.log('Analytics disabled. No data will be collected.');
+  });
+
+analyticsCmd
+  .command('show')
+  .description('View your analytics data')
+  .option('--json', 'Output as JSON')
+  .action((options) => {
+    if (options.json) {
+      const events = analytics.readEvents();
+      console.log(JSON.stringify(events, null, 2));
+    } else {
+      console.log(analytics.getSummary());
+    }
+  });
+
+analyticsCmd
+  .command('reset')
+  .description('Delete all analytics data')
+  .action(() => {
+    const count = analytics.getStatus().eventCount;
+    analytics.clearEvents();
+    analytics.setAnalyticsEnabled(false);
+    console.log(`Deleted ${count} local events. Analytics disabled.`);
+  });
+
+// ===========================================
 // Helper Functions
 // ===========================================
 
@@ -1852,15 +1907,63 @@ program
     }
   });
 
-// Check for updates (skip for update command itself and quiet mode)
-const args = process.argv.slice(2);
-const isUpdateCommand = args[0] === 'update';
-const isQuiet = args.includes('--quiet') || args.includes('--json');
-
-if (!isUpdateCommand && !isQuiet) {
-  // Fire and forget - don't block startup
-  checkForUpdates().catch(() => {});
+/**
+ * Get command path for analytics (e.g., "sites.list", "wp")
+ */
+function getCommandPath(command: Command): string {
+  const parts: string[] = [];
+  let current: Command | null = command;
+  while (current && current.name() !== 'lwp') {
+    parts.unshift(current.name());
+    current = current.parent;
+  }
+  return parts.join('.') || 'unknown';
 }
 
-// Parse and execute
-program.parse();
+// ===========================================
+// Main Entry Point
+// ===========================================
+
+async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+  const isUpdateCommand = args[0] === 'update';
+  const isQuiet = args.includes('--quiet') || args.includes('--json');
+
+  // Check for updates (skip for update command itself and quiet mode)
+  if (!isUpdateCommand && !isQuiet) {
+    // Fire and forget - don't block startup
+    checkForUpdates().catch(() => {});
+  }
+
+  // Show opt-in prompt on first run (skip for certain commands)
+  const skipPromptCommands = ['update', 'analytics', '--help', '-h', '--version', '-V'];
+  const shouldSkipPrompt = args.length === 0 || skipPromptCommands.some((cmd) => args[0] === cmd);
+
+  if (!shouldSkipPrompt && !analytics.hasBeenPrompted()) {
+    await analytics.showOptInPrompt();
+  }
+
+  // Set up analytics tracking hooks
+  program.hook('preAction', (thisCommand) => {
+    const commandPath = getCommandPath(thisCommand);
+    analytics.startTracking(commandPath);
+  });
+
+  program.hook('postAction', () => {
+    analytics.finishTracking(true);
+  });
+
+  // Parse and execute
+  try {
+    await program.parseAsync(process.argv);
+  } catch (error) {
+    analytics.finishTracking(false);
+    throw error;
+  }
+}
+
+// Run main
+main().catch((error) => {
+  console.error(formatError(error.message || 'An unexpected error occurred'));
+  process.exit(1);
+});
