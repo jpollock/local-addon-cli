@@ -1745,6 +1745,7 @@ analyticsCmd
     const status = analytics.getStatus();
     console.log(`Analytics: ${status.enabled ? 'enabled' : 'disabled'}`);
     console.log(`Total events stored: ${status.eventCount}`);
+    console.log(`Installation ID: ${status.installationId}`);
   });
 
 analyticsCmd
@@ -1778,12 +1779,11 @@ analyticsCmd
 
 analyticsCmd
   .command('reset')
-  .description('Delete all analytics data')
+  .description('Delete all analytics data and regenerate installation ID')
   .action(() => {
     const count = analytics.getStatus().eventCount;
-    analytics.clearEvents();
-    analytics.setAnalyticsEnabled(false);
-    console.log(`Deleted ${count} local events. Analytics disabled.`);
+    analytics.resetAnalytics();
+    console.log(`Deleted ${count} local events. Installation ID regenerated. Analytics disabled.`);
   });
 
 // ===========================================

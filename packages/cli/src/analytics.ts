@@ -1,34 +1,56 @@
 /**
- * Anonymous Usage Analytics - Phase 1 (Local Only)
+ * Anonymous Usage Analytics - Phase 2 (Server Transmission)
  *
- * Collects minimal anonymous usage data with user consent.
- * All data stays local until Phase 2.
+ * Collects anonymous usage data with user consent and transmits to server.
  *
- * Privacy: Only tracks command names, success/failure, and duration.
+ * Privacy: Only tracks command names, success/failure, duration, and system info.
  * Never tracks: arguments, site names, paths, or any PII.
+ *
+ * Identifiers:
+ * - installationId: Random UUID, identifies this CLI installation (not the user)
+ * - sessionId: Random UUID per CLI invocation, correlates commands in a session
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import * as readline from 'readline';
+import * as crypto from 'crypto';
 
 // ============================================================================
 // Types
 // ============================================================================
 
 interface AnalyticsConfig {
+  installationId?: string;
   analytics: {
     enabled: boolean;
     promptedAt: string | null;
   };
 }
 
+export type ErrorCategory =
+  | 'site_not_found'
+  | 'site_not_running'
+  | 'local_not_running'
+  | 'timeout'
+  | 'network_error'
+  | 'validation_error'
+  | 'unknown';
+
 interface AnalyticsEvent {
+  // Phase 1 fields
   command: string;
   success: boolean;
   duration_ms: number;
   timestamp: string;
+
+  // Phase 2 fields
+  installation_id: string;
+  session_id: string;
+  cli_version: string;
+  os: string;
+  node_version: string;
+  error_category?: ErrorCategory;
 }
 
 // ============================================================================
@@ -37,6 +59,15 @@ interface AnalyticsEvent {
 
 const MAX_EVENTS = 10000;
 const EXCLUDED_PREFIXES = ['wpe.', 'analytics.'];
+const ANALYTICS_ENDPOINT =
+  process.env.LWP_ANALYTICS_ENDPOINT || 'https://lwp-analytics.jpollock.workers.dev/v1/events';
+const TRANSMISSION_TIMEOUT = 5000; // 5 seconds
+
+// Session ID generated once per CLI invocation
+const SESSION_ID = crypto.randomUUID();
+
+// CLI version from package.json
+const CLI_VERSION = require('../package.json').version;
 
 // Lazy-initialized paths (for testability)
 function getLwpDir(): string {
@@ -75,6 +106,10 @@ function ensureDir(dirPath: string): void {
   }
 }
 
+function generateInstallationId(): string {
+  return crypto.randomUUID();
+}
+
 function readConfig(): AnalyticsConfig {
   try {
     const configPath = getConfigPath();
@@ -83,14 +118,22 @@ function readConfig(): AnalyticsConfig {
       const config = JSON.parse(data);
       // Validate structure
       if (typeof config.analytics?.enabled === 'boolean') {
+        // Ensure installationId exists (migrate from Phase 1)
+        if (!config.installationId) {
+          config.installationId = generateInstallationId();
+          writeConfig(config);
+        }
         return config;
       }
     }
   } catch {
     // Corrupted config, will regenerate
   }
-  // Default to enabled (opt-out model)
-  return { analytics: { enabled: true, promptedAt: null } };
+  // Default to enabled (opt-out model) with new installationId
+  return {
+    installationId: generateInstallationId(),
+    analytics: { enabled: true, promptedAt: null },
+  };
 }
 
 function writeConfig(config: AnalyticsConfig): void {
@@ -100,6 +143,14 @@ function writeConfig(config: AnalyticsConfig): void {
   fs.writeFileSync(tempPath, JSON.stringify(config, null, 2));
   fs.chmodSync(tempPath, 0o600);
   fs.renameSync(tempPath, configPath);
+}
+
+export function getInstallationId(): string {
+  return readConfig().installationId || generateInstallationId();
+}
+
+export function getSessionId(): string {
+  return SESSION_ID;
 }
 
 export function isAnalyticsEnabled(): boolean {
@@ -161,6 +212,29 @@ function isCommandExcluded(command: string): boolean {
   return EXCLUDED_PREFIXES.some((prefix) => command.startsWith(prefix));
 }
 
+/**
+ * Transmit event to analytics server (fire-and-forget)
+ */
+async function transmitEvent(event: AnalyticsEvent): Promise<void> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TRANSMISSION_TIMEOUT);
+
+    await fetch(ANALYTICS_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(event),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+  } catch {
+    // Silently ignore transmission errors - never block CLI
+  }
+}
+
 export function recordEvent(event: AnalyticsEvent): void {
   try {
     if (!isAnalyticsEnabled()) return;
@@ -184,12 +258,17 @@ export function recordEvent(event: AnalyticsEvent): void {
       }
     }
 
-    // Append new event
+    // Append new event to local storage
     const line = JSON.stringify(event) + '\n';
     fs.appendFileSync(eventsPath, line);
 
     // Ensure permissions on first write
     fs.chmodSync(eventsPath, 0o600);
+
+    // Transmit to server (fire-and-forget, don't await)
+    transmitEvent(event).catch(() => {
+      // Ignore transmission errors
+    });
   } catch {
     // Never let analytics errors affect command execution
   }
@@ -221,6 +300,17 @@ export function clearEvents(): void {
   }
 }
 
+/**
+ * Reset analytics: clear events and regenerate installationId
+ */
+export function resetAnalytics(): void {
+  clearEvents();
+  const config = readConfig();
+  config.installationId = generateInstallationId();
+  config.analytics.enabled = false;
+  writeConfig(config);
+}
+
 // ============================================================================
 // Command Tracking (for Commander hooks)
 // ============================================================================
@@ -233,16 +323,28 @@ export function startTracking(commandName: string): void {
   currentCommandName = commandName;
 }
 
-export function finishTracking(success: boolean): void {
+export function finishTracking(success: boolean, errorCategory?: ErrorCategory): void {
   if (commandStartTime === null || currentCommandName === null) return;
 
   const duration = Date.now() - commandStartTime;
-  recordEvent({
+  const event: AnalyticsEvent = {
     command: currentCommandName,
     success,
     duration_ms: duration,
     timestamp: new Date().toISOString(),
-  });
+    installation_id: getInstallationId(),
+    session_id: SESSION_ID,
+    cli_version: CLI_VERSION,
+    os: os.platform(),
+    node_version: process.version,
+  };
+
+  // Add error category for failures
+  if (!success && errorCategory) {
+    event.error_category = errorCategory;
+  }
+
+  recordEvent(event);
 
   commandStartTime = null;
   currentCommandName = null;
@@ -252,10 +354,11 @@ export function finishTracking(success: boolean): void {
 // Analytics Summary
 // ============================================================================
 
-export function getStatus(): { enabled: boolean; eventCount: number } {
+export function getStatus(): { enabled: boolean; eventCount: number; installationId: string } {
   return {
     enabled: isAnalyticsEnabled(),
     eventCount: readEvents().length,
+    installationId: getInstallationId(),
   };
 }
 
