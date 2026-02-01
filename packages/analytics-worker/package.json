@@ -1,0 +1,16 @@
+{
+  "name": "@local-labs-jpollock/analytics-worker",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:create": "wrangler d1 create lwp-analytics",
+    "db:migrate": "wrangler d1 execute lwp-analytics --file=./schema.sql",
+    "db:migrate:local": "wrangler d1 execute lwp-analytics --local --file=./schema.sql"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240117.0",
+    "wrangler": "^3.22.0"
+  }
+}
