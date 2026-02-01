@@ -35,13 +35,25 @@ interface AnalyticsEvent {
 // Constants
 // ============================================================================
 
-const LWP_DIR = path.join(os.homedir(), '.lwp');
-const CONFIG_PATH = path.join(LWP_DIR, 'config.json');
-const EVENTS_DIR = path.join(LWP_DIR, 'analytics');
-const EVENTS_PATH = path.join(EVENTS_DIR, 'events.jsonl');
-
 const MAX_EVENTS = 10000;
 const EXCLUDED_PREFIXES = ['wpe.', 'analytics.'];
+
+// Lazy-initialized paths (for testability)
+function getLwpDir(): string {
+  return path.join(os.homedir(), '.lwp');
+}
+
+function getConfigPath(): string {
+  return path.join(getLwpDir(), 'config.json');
+}
+
+function getEventsDir(): string {
+  return path.join(getLwpDir(), 'analytics');
+}
+
+function getEventsPath(): string {
+  return path.join(getEventsDir(), 'events.jsonl');
+}
 
 const CI_ENV_VARS = [
   'CI',
@@ -65,8 +77,9 @@ function ensureDir(dirPath: string): void {
 
 function readConfig(): AnalyticsConfig {
   try {
-    if (fs.existsSync(CONFIG_PATH)) {
-      const data = fs.readFileSync(CONFIG_PATH, 'utf-8');
+    const configPath = getConfigPath();
+    if (fs.existsSync(configPath)) {
+      const data = fs.readFileSync(configPath, 'utf-8');
       const config = JSON.parse(data);
       // Validate structure
       if (typeof config.analytics?.enabled === 'boolean') {
@@ -80,11 +93,12 @@ function readConfig(): AnalyticsConfig {
 }
 
 function writeConfig(config: AnalyticsConfig): void {
-  ensureDir(LWP_DIR);
-  const tempPath = `${CONFIG_PATH}.${process.pid}.tmp`;
+  const configPath = getConfigPath();
+  ensureDir(getLwpDir());
+  const tempPath = `${configPath}.${process.pid}.tmp`;
   fs.writeFileSync(tempPath, JSON.stringify(config, null, 2));
   fs.chmodSync(tempPath, 0o600);
-  fs.renameSync(tempPath, CONFIG_PATH);
+  fs.renameSync(tempPath, configPath);
 }
 
 export function isAnalyticsEnabled(): boolean {
@@ -166,27 +180,30 @@ export function recordEvent(event: AnalyticsEvent): void {
     if (!isAnalyticsEnabled()) return;
     if (isCommandExcluded(event.command)) return;
 
-    ensureDir(EVENTS_DIR);
+    const eventsDir = getEventsDir();
+    const eventsPath = getEventsPath();
+
+    ensureDir(eventsDir);
 
     // Check event count and rotate if needed
-    if (fs.existsSync(EVENTS_PATH)) {
-      const content = fs.readFileSync(EVENTS_PATH, 'utf-8');
+    if (fs.existsSync(eventsPath)) {
+      const content = fs.readFileSync(eventsPath, 'utf-8');
       const lines = content.trim().split('\n').filter(Boolean);
       if (lines.length >= MAX_EVENTS) {
         // Keep newest 80%
         const keepCount = Math.floor(MAX_EVENTS * 0.8);
         const toKeep = lines.slice(-keepCount);
-        fs.writeFileSync(EVENTS_PATH, toKeep.join('\n') + '\n');
-        fs.chmodSync(EVENTS_PATH, 0o600);
+        fs.writeFileSync(eventsPath, toKeep.join('\n') + '\n');
+        fs.chmodSync(eventsPath, 0o600);
       }
     }
 
     // Append new event
     const line = JSON.stringify(event) + '\n';
-    fs.appendFileSync(EVENTS_PATH, line);
+    fs.appendFileSync(eventsPath, line);
 
     // Ensure permissions on first write
-    fs.chmodSync(EVENTS_PATH, 0o600);
+    fs.chmodSync(eventsPath, 0o600);
   } catch {
     // Never let analytics errors affect command execution
   }
@@ -194,8 +211,9 @@ export function recordEvent(event: AnalyticsEvent): void {
 
 export function readEvents(): AnalyticsEvent[] {
   try {
-    if (!fs.existsSync(EVENTS_PATH)) return [];
-    const content = fs.readFileSync(EVENTS_PATH, 'utf-8');
+    const eventsPath = getEventsPath();
+    if (!fs.existsSync(eventsPath)) return [];
+    const content = fs.readFileSync(eventsPath, 'utf-8');
     return content
       .trim()
       .split('\n')
@@ -208,8 +226,9 @@ export function readEvents(): AnalyticsEvent[] {
 
 export function clearEvents(): void {
   try {
-    if (fs.existsSync(EVENTS_PATH)) {
-      fs.unlinkSync(EVENTS_PATH);
+    const eventsPath = getEventsPath();
+    if (fs.existsSync(eventsPath)) {
+      fs.unlinkSync(eventsPath);
     }
   } catch {
     // Ignore cleanup errors
