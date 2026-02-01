@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Anonymous usage analytics with opt-in/opt-out (Phase 1 - local only)
+  - `lwp analytics status` - Show analytics status
+  - `lwp analytics on` - Enable analytics
+  - `lwp analytics off` - Disable analytics
+  - `lwp analytics show` - View usage summary (or `--json` for raw events)
+  - `lwp analytics reset` - Delete all data
+- First-run opt-in prompt (defaults to opt-out in non-interactive mode)
+- Auto-disable analytics in CI environments
+- Command exclusions for sensitive commands (wpe.*, analytics.*)
+
 ## [0.0.5] - 2025-01-31
 
 ### Fixed
