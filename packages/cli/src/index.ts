@@ -1944,8 +1944,9 @@ async function main(): Promise<void> {
   }
 
   // Set up analytics tracking hooks
-  program.hook('preAction', (thisCommand) => {
-    const commandPath = getCommandPath(thisCommand);
+  // preAction receives (thisCommand, actionCommand) - we want actionCommand
+  program.hook('preAction', (thisCommand, actionCommand) => {
+    const commandPath = getCommandPath(actionCommand);
     analytics.startTracking(commandPath);
   });
 
