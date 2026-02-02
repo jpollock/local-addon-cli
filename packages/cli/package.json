@@ -1,6 +1,6 @@
 {
   "name": "@local-labs-jpollock/local-cli",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "Command-line interface for Local WordPress development",
   "main": "lib/index.js",
   "bin": {
