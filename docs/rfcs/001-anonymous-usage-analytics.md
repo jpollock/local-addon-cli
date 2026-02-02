@@ -25,27 +25,24 @@ However, this must be balanced against user privacy and trust.
 2. **Transparency** - Users know exactly what's collected
 3. **User control** - Easy opt-in/opt-out at any time
 4. **Data ownership** - Users can view and delete their data
-5. **Security** - No data leakage between users
+5. **Simplicity** - Minimal implementation for MVP, add complexity only when needed
 
 ---
 
-## Phase 1: Local Tracking + CLI Dashboard (MVP)
+## Phase 1: Local Tracking + CLI Summary (MVP)
 
 ### What We Track
 
-#### Collected Data
+#### Collected Data (Minimal)
 
 | Field | Example | Purpose |
 |-------|---------|---------|
-| `event` | `command_executed` | Event type |
 | `command` | `sites.list` | Command name (no arguments) |
 | `success` | `true` | Did it succeed? |
 | `duration_ms` | `1234` | Execution time |
-| `cli_version` | `0.0.5` | CLI version |
-| `os` | `darwin` | Operating system |
-| `node_version` | `20.10.0` | Node.js version |
 | `timestamp` | `2025-01-31T12:00:00Z` | When it happened |
-| `session_id` | `uuid` | Groups commands in one session |
+
+**Note:** Phase 1 intentionally collects minimal data. Additional fields (cli_version, os, node_version, session_id, error_category) deferred to Phase 2 when events are transmitted to a server.
 
 #### Never Collected
 
@@ -55,45 +52,41 @@ However, this must be balanced against user privacy and trust.
 - IP addresses
 - User names, emails, or any PII
 - Environment variables
-- Error stack traces with file paths
+- Error stack traces or messages
 
-### User Identity
+### Config File
 
-On first run, lwp generates a local identity stored in `~/.lwp/config.json`:
+On first run, lwp creates `~/.lwp/config.json`:
 
 ```json
 {
-  "userId": "550e8400-e29b-41d4-a716-446655440000",
   "analytics": {
     "enabled": true,
-    "promptedAt": "2025-01-31T12:00:00Z",
-    "excludeCommands": ["wpe.*", "analytics.*"]
+    "promptedAt": "2025-01-31T12:00:00Z"
   }
 }
 ```
 
-- `userId`: Random UUID v4, generated locally
-- Never transmitted with events (events are truly anonymous)
-- Used only for local event correlation and future dashboard access
-- `excludeCommands`: Glob patterns for commands to never track
+- Minimal config for Phase 1
+- `userId` and `secretKey` added in Phase 3 when needed for signed URLs
+- File permissions set to `0600` (user read/write only)
 
 ### Command Exclusion
 
-Certain commands are excluded from tracking by default:
+Certain commands are excluded from tracking using simple prefix matching:
 
-| Pattern | Reason |
-|---------|--------|
-| `wpe.*` | May contain sensitive WP Engine hosting information |
-| `analytics.*` | Meta commands about analytics itself |
+| Prefix | Reason |
+|--------|--------|
+| `wpe.` | May contain sensitive WP Engine hosting information |
+| `analytics.` | Meta commands about analytics itself |
 
-Users can add custom exclusions:
-
-```bash
-lwp analytics exclude "db.*"      # Exclude all database commands
-lwp analytics exclude "wp"        # Exclude wp-cli commands
-lwp analytics exclude --list      # Show current exclusions
-lwp analytics exclude --reset     # Reset to defaults
+```typescript
+// Simple implementation - no dependencies needed
+const EXCLUDED_PREFIXES = ['wpe.', 'analytics.'];
+const isExcluded = (cmd: string) => EXCLUDED_PREFIXES.some(p => cmd.startsWith(p));
 ```
+
+**Note:** User-configurable exclusions deferred to a future phase. Users who want to exclude commands can simply disable analytics.
 
 ### CI/CD Detection
 
@@ -117,7 +110,7 @@ Override with `LWP_ANALYTICS=1` to explicitly enable in CI.
 
 ### Opt-In Flow
 
-#### First Run
+#### First Run (Interactive Terminal)
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -133,14 +126,16 @@ Enable anonymous analytics? [Y/n]:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
+#### Non-Interactive (Scripts, CI)
+
+When stdin is not a TTY, default to **opt-out** without prompting. This prevents blocking automation.
+
 #### Commands
 
 ```bash
 # Check current status
 lwp analytics status
 # → Analytics: enabled
-# → User ID: 550e8400-...
-# → Events this session: 12
 # → Total events stored: 847
 
 # Disable analytics
@@ -151,21 +146,16 @@ lwp analytics off
 lwp analytics on
 # → Analytics enabled. Thank you for helping improve lwp!
 
-# View what's being collected
+# View collected data
 lwp analytics show
-# → Shows recent events in a table
+# → Shows summary of tracked commands
 
 lwp analytics show --json
-# → Exports all local events as JSON
+# → Exports all local events as JSON array
 
 # Delete all local data
 lwp analytics reset
-# → Deleted 847 local events.
-# → Generated new user ID.
-
-# See what would be sent (dry run)
-lwp analytics debug
-# → Shows next event payload without sending
+# → Deleted 847 local events. Analytics disabled.
 ```
 
 #### Environment Variable Override
@@ -183,53 +173,71 @@ export LWP_ANALYTICS=0
 Events stored in `~/.lwp/analytics/events.jsonl` (JSON Lines format):
 
 ```jsonl
-{"event":"command_executed","command":"sites.list","success":true,"duration_ms":234,"timestamp":"2025-01-31T12:00:00Z"}
-{"event":"command_executed","command":"wp","success":true,"duration_ms":1456,"timestamp":"2025-01-31T12:01:00Z"}
-{"event":"command_executed","command":"sites.start","success":false,"duration_ms":5023,"timestamp":"2025-01-31T12:02:00Z"}
+{"command":"sites.list","success":true,"duration_ms":234,"timestamp":"2025-01-31T12:00:00Z"}
+{"command":"wp","success":true,"duration_ms":1456,"timestamp":"2025-01-31T12:01:00Z"}
+{"command":"sites.start","success":false,"duration_ms":5023,"timestamp":"2025-01-31T12:02:00Z"}
 ```
 
-- Maximum 10,000 events stored locally (FIFO)
-- ~1-2 MB max storage
-- Rotated automatically
+- Maximum 10,000 events stored locally
+- ~500KB max storage (minimal event format)
+- File permissions set to `0600`
+- Simple size-based cleanup when limit reached
 
-### CLI Dashboard
+### CLI Summary Output
 
 ```bash
 lwp analytics show
 ```
 
-Output:
+Output (simple text, no ASCII charts):
 ```
-Usage Analytics (last 30 days)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Analytics Summary
+─────────────────
+Total commands:  847
+Success rate:    94.2%
 
-Total Commands: 847
-Success Rate:   94.2%
+Top commands:
+  sites.list     234
+  wp             189
+  sites.start    156
+  sites.stop      98
+  db.export       45
 
-Top Commands:
-  sites list      234  ████████████████████
-  wp              189  ████████████████
-  sites start     156  █████████████
-  sites stop      98   ████████
-  db export       45   ████
-
-Commands by Day:
-  Mon  ████████████████████  42
-  Tue  ████████████████      35
-  Wed  ██████████████████    38
-  Thu  ████████████          28
-  Fri  ██████████████████    37
-  Sat  ████                  8
-  Sun  ██████                12
-
-Failed Commands (last 7 days):
-  sites start   3 failures  "Site not found" (2), "Timeout" (1)
-  wp            2 failures  "Site not running" (2)
+Recent failures:  5 in last 7 days
 ```
+
+**Note:** Fancy ASCII bar charts and day-of-week histograms deferred. Simple text output is sufficient for MVP.
 
 ---
 
 ## Phase 2: Central Analytics Service (Future)
+
+### Additional Event Fields
+
+When transmitting to server, add:
+
+| Field | Example | Purpose |
+|-------|---------|---------|
+| `cli_version` | `0.0.5` | Version adoption tracking |
+| `os` | `darwin` | Platform distribution |
+| `node_version` | `20.10.0` | Runtime compatibility |
+| `session_id` | `uuid` | Correlate commands in session |
+| `error_category` | `site_not_found` | Failure analysis |
+
+### Error Categories (Phase 2)
+
+```typescript
+enum ErrorCategory {
+  SITE_NOT_FOUND = 'site_not_found',
+  SITE_NOT_RUNNING = 'site_not_running',
+  LOCAL_NOT_RUNNING = 'local_not_running',
+  TIMEOUT = 'timeout',
+  NETWORK_ERROR = 'network_error',
+  UNKNOWN = 'unknown'
+}
+```
+
+**Note:** Error categorization deferred to Phase 2. In Phase 1, we only track `success: true/false`.
 
 ### Architecture
 
@@ -260,13 +268,11 @@ Content-Type: application/json
   "cli_version": "0.0.5",
   "os": "darwin",
   "events": [
-    {"event": "command_executed", "command": "sites.list", ...},
-    {"event": "command_executed", "command": "wp", ...}
+    {"command": "sites.list", "success": true, ...},
+    {"command": "wp", "success": true, ...}
   ]
 }
 ```
-
-**Note:** `userId` is NOT sent. Events are truly anonymous.
 
 ### Aggregate Dashboard (Admin Only)
 
@@ -310,6 +316,25 @@ https://analytics.lwp.dev/d/abc123?sig=hmac_signature&exp=1706749200
 This link expires in 1 hour. Run this command again for a new link.
 ```
 
+### Config Updates for Phase 3
+
+Add userId and secretKey to config:
+
+```json
+{
+  "userId": "550e8400-e29b-41d4-a716-446655440000",
+  "secretKey": "base64-encoded-32-bytes",
+  "analytics": {
+    "enabled": true,
+    "promptedAt": "2025-01-31T12:00:00Z"
+  }
+}
+```
+
+- `userId`: Random UUID v4, generated locally
+- `secretKey`: 32 random bytes for HMAC signing
+- Both generated when first needed (Phase 3), not in Phase 1
+
 ### How It Works
 
 1. **User runs `lwp analytics dashboard`**
@@ -335,23 +360,6 @@ This link expires in 1 hour. Run this command again for a new link.
 | Signature tampering | HMAC validation |
 | Rate limiting bypass | Per-IP and per-user limits |
 
-### User Secret Key
-
-Stored locally in `~/.lwp/config.json`:
-
-```json
-{
-  "userId": "uuid",
-  "secretKey": "base64-encoded-32-bytes",
-  "analytics": { "enabled": true }
-}
-```
-
-- Generated on first run
-- Never transmitted to server
-- Used only for signing dashboard URLs
-- Can be regenerated with `lwp analytics reset`
-
 ### Dashboard Features
 
 - Command usage over time
@@ -365,23 +373,24 @@ Stored locally in `~/.lwp/config.json`:
 
 ## Implementation Plan
 
-### Phase 1 (MVP) - CLI-Only
+### Phase 1 (MVP) - CLI-Only (~300 lines, 1-2 files)
 
 | Task | Estimate |
 |------|----------|
-| Add config file management (`~/.lwp/config.json`) | S |
-| Implement opt-in prompt on first run | S |
-| Add event tracking to command execution | M |
+| Config file management (`~/.lwp/config.json`) | S |
+| Opt-in prompt on first run | S |
+| Event tracking with Commander hooks | S |
 | Local event storage (JSONL file) | S |
 | `lwp analytics` commands (status, on, off, show, reset) | M |
-| CLI dashboard visualization | M |
+| Simple text summary output | S |
 | Documentation | S |
-| **Total** | **~1-2 days** |
+| **Total** | **~1 day** |
 
 ### Phase 2 - Central Service
 
 | Task | Estimate |
 |------|----------|
+| Add extended event fields (version, os, session_id, error_category) | S |
 | Design API endpoints | S |
 | Set up serverless infrastructure (Lambda + DynamoDB) | M |
 | Implement event ingestion endpoint | M |
@@ -393,6 +402,7 @@ Stored locally in `~/.lwp/config.json`:
 
 | Task | Estimate |
 |------|----------|
+| Add userId and secretKey to config | S |
 | Implement HMAC signing in CLI | S |
 | Add signature validation to server | S |
 | Build user-specific dashboard views | L |
@@ -405,10 +415,10 @@ Stored locally in `~/.lwp/config.json`:
 
 ### GDPR Compliance
 
-- **Data minimization:** Only collect what's necessary
+- **Data minimization:** Only collect what's necessary (Phase 1 is extremely minimal)
 - **Purpose limitation:** Only for product improvement
-- **Right to erasure:** `lwp analytics reset` + server deletion
-- **Right to access:** `lwp analytics show --json` + dashboard export
+- **Right to erasure:** `lwp analytics reset`
+- **Right to access:** `lwp analytics show --json`
 - **Consent:** Explicit opt-in prompt
 
 ### Data Flow
@@ -417,16 +427,12 @@ Stored locally in `~/.lwp/config.json`:
 User's Machine                    Our Infrastructure
 ━━━━━━━━━━━━━━━                   ━━━━━━━━━━━━━━━━━━
 ~/.lwp/
-├── config.json     ─── userId never leaves machine
-│   ├── userId
-│   └── secretKey
+├── config.json     ─── Config stays local (Phase 1)
+│   └── analytics.enabled
 │
 └── analytics/
-    └── events.jsonl ─── Events (no userId) ──▶ Analytics API
-                                                    │
-                                                    ▼
-                                              Aggregated stats
-                                              (no individual data)
+    └── events.jsonl ─── Events stay local (Phase 1)
+                         ──▶ Anonymous events (Phase 2+)
 ```
 
 ---
@@ -434,27 +440,28 @@ User's Machine                    Our Infrastructure
 ## Decisions
 
 1. **Opt-in vs Opt-out default?**
-   - **Decision: Opt-in by default**
-   - Users must explicitly agree to analytics on first run
-   - No data collected until user consents
+   - **Decision: Enabled by default (opt-out model)**
+   - Analytics enabled by default to maximize data collection
+   - Users can easily disable with `lwp analytics off`
+   - First-run prompt informs users and offers easy opt-out
+   - Non-interactive terminals also default to enabled
 
 2. **What commands to exclude from tracking?**
-   - **Decision: Configurable exclusion list**
-   - Initial exclusions:
-     - `wpe *` - WP Engine commands (may contain sensitive hosting info)
-     - `analytics *` - Meta commands about analytics itself
-   - Exclusion list stored in config, extensible for future needs
+   - **Decision: Hardcoded prefix exclusions**
+   - `wpe.` - WP Engine commands
+   - `analytics.` - Meta commands
+   - User-configurable exclusions deferred to future phase
 
 3. **Should we track error types?**
-   - **Decision: Yes, track error categories**
-   - Track category (e.g., `site_not_found`, `timeout`, `auth_failed`)
-   - Never track error messages (may contain paths/names)
+   - **Decision: Defer to Phase 2**
+   - Phase 1 tracks only `success: true/false`
+   - Error categorization added when transmitting to server
 
 4. **Offline behavior?**
-   - **Decision: Queue locally, send when online**
+   - **Decision: Local-only for Phase 1**
    - Events stored in local JSONL file
-   - Batched and sent when connectivity available
-   - Max queue size: 10,000 events (FIFO)
+   - No network transmission until Phase 2
+   - Max queue size: 10,000 events
 
 5. **CI/CD environments?**
    - **Decision: Auto-disable in CI**
@@ -462,31 +469,31 @@ User's Machine                    Our Infrastructure
    - Also detect: `GITHUB_ACTIONS`, `GITLAB_CI`, `JENKINS_URL`, `TRAVIS`
    - Can be explicitly enabled with `LWP_ANALYTICS=1`
 
+6. **Implementation complexity?**
+   - **Decision: Minimal for Phase 1**
+   - Single analytics module (~300 lines)
+   - No external dependencies
+   - Add complexity only when needed for Phase 2+
+
 ---
 
-## Appendix: Example Event Payloads
+## Appendix: Event Payloads
 
-### Command Executed (Success)
+### Phase 1: Minimal Event
 
 ```json
 {
-  "event": "command_executed",
   "command": "sites.list",
   "success": true,
   "duration_ms": 234,
-  "cli_version": "0.0.5",
-  "os": "darwin",
-  "node_version": "20.10.0",
-  "timestamp": "2025-01-31T12:00:00.000Z",
-  "session_id": "abc123"
+  "timestamp": "2025-01-31T12:00:00.000Z"
 }
 ```
 
-### Command Executed (Failure)
+### Phase 2: Extended Event (Future)
 
 ```json
 {
-  "event": "command_executed",
   "command": "sites.start",
   "success": false,
   "error_category": "site_not_found",
@@ -499,18 +506,32 @@ User's Machine                    Our Infrastructure
 }
 ```
 
-### CLI Started
+---
 
-```json
-{
-  "event": "cli_started",
-  "cli_version": "0.0.5",
-  "os": "darwin",
-  "node_version": "20.10.0",
-  "timestamp": "2025-01-31T12:00:00.000Z",
-  "session_id": "abc123"
-}
+## Security Considerations
+
+### File Permissions
+
+- Config file (`~/.lwp/config.json`): `0600`
+- Events file (`~/.lwp/analytics/events.jsonl`): `0600`
+- Directory (`~/.lwp/`): `0700`
+
+### Atomic Writes
+
+Use temp file + rename pattern to prevent corruption:
+```typescript
+const tempPath = `${configPath}.${process.pid}.tmp`;
+fs.writeFileSync(tempPath, data);
+fs.chmodSync(tempPath, 0o600);
+fs.renameSync(tempPath, configPath);
 ```
+
+### Error Handling
+
+- Analytics failures must never block command execution
+- Wrap all analytics code in try/catch
+- Log errors to debug, don't show to users
+- If config is corrupted, regenerate with defaults
 
 ---
 
