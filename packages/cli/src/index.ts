@@ -1786,6 +1786,15 @@ analyticsCmd
     console.log(`Deleted ${count} local events. Installation ID regenerated. Analytics disabled.`);
   });
 
+analyticsCmd
+  .command('dashboard')
+  .description('Open your personal analytics dashboard')
+  .action(() => {
+    const url = analytics.getDashboardUrl();
+    console.log('Your analytics dashboard (expires in 1 hour):');
+    console.log(url);
+  });
+
 // ===========================================
 // Helper Functions
 // ===========================================

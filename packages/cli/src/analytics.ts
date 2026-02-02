@@ -1,13 +1,15 @@
 /**
- * Anonymous Usage Analytics - Phase 2 (Server Transmission)
+ * Anonymous Usage Analytics - Phase 3 (Signed Authentication)
  *
  * Collects anonymous usage data with user consent and transmits to server.
+ * All requests are signed with HMAC-SHA256 for authentication.
  *
  * Privacy: Only tracks command names, success/failure, duration, and system info.
  * Never tracks: arguments, site names, paths, or any PII.
  *
  * Identifiers:
  * - installationId: Random UUID, identifies this CLI installation (not the user)
+ * - secretKey: Random 32 bytes, used for HMAC signing (never transmitted after registration)
  * - sessionId: Random UUID per CLI invocation, correlates commands in a session
  */
 
@@ -22,6 +24,8 @@ import * as crypto from 'crypto';
 
 interface AnalyticsConfig {
   installationId?: string;
+  secretKey?: string;
+  registeredAt?: string; // When secretKey was first sent to server
   analytics: {
     enabled: boolean;
     promptedAt: string | null;
@@ -59,8 +63,10 @@ interface AnalyticsEvent {
 
 const MAX_EVENTS = 10000;
 const EXCLUDED_PREFIXES = ['wpe.', 'analytics.'];
-const ANALYTICS_ENDPOINT =
-  process.env.LWP_ANALYTICS_ENDPOINT || 'https://lwp-analytics.jpollock.workers.dev/v1/events';
+const ANALYTICS_BASE_URL =
+  process.env.LWP_ANALYTICS_ENDPOINT?.replace('/v1/events', '') ||
+  'https://lwp-analytics.jeremy7746.workers.dev';
+const ANALYTICS_ENDPOINT = `${ANALYTICS_BASE_URL}/v1/events`;
 const TRANSMISSION_TIMEOUT = 5000; // 5 seconds
 
 // Session ID generated once per CLI invocation
@@ -110,6 +116,10 @@ function generateInstallationId(): string {
   return crypto.randomUUID();
 }
 
+function generateSecretKey(): string {
+  return crypto.randomBytes(32).toString('base64');
+}
+
 function readConfig(): AnalyticsConfig {
   try {
     const configPath = getConfigPath();
@@ -118,9 +128,21 @@ function readConfig(): AnalyticsConfig {
       const config = JSON.parse(data);
       // Validate structure
       if (typeof config.analytics?.enabled === 'boolean') {
-        // Ensure installationId exists (migrate from Phase 1)
+        let needsWrite = false;
+
+        // Ensure installationId exists (migrate from Phase 1/2)
         if (!config.installationId) {
           config.installationId = generateInstallationId();
+          needsWrite = true;
+        }
+
+        // Ensure secretKey exists (migrate from Phase 2)
+        if (!config.secretKey) {
+          config.secretKey = generateSecretKey();
+          needsWrite = true;
+        }
+
+        if (needsWrite) {
           writeConfig(config);
         }
         return config;
@@ -129,9 +151,10 @@ function readConfig(): AnalyticsConfig {
   } catch {
     // Corrupted config, will regenerate
   }
-  // Default to enabled (opt-out model) with new installationId
+  // Default to enabled (opt-out model) with new credentials
   return {
     installationId: generateInstallationId(),
+    secretKey: generateSecretKey(),
     analytics: { enabled: true, promptedAt: null },
   };
 }
@@ -147,6 +170,10 @@ function writeConfig(config: AnalyticsConfig): void {
 
 export function getInstallationId(): string {
   return readConfig().installationId || generateInstallationId();
+}
+
+export function getSecretKey(): string {
+  return readConfig().secretKey || generateSecretKey();
 }
 
 export function getSessionId(): string {
@@ -170,6 +197,34 @@ export function setAnalyticsEnabled(enabled: boolean): void {
 
 export function hasBeenPrompted(): boolean {
   return readConfig().analytics.promptedAt !== null;
+}
+
+// ============================================================================
+// HMAC Signing
+// ============================================================================
+
+/**
+ * Sign data with HMAC-SHA256
+ */
+function signData(data: string, secretKey: string): string {
+  const key = Buffer.from(secretKey, 'base64');
+  return crypto.createHmac('sha256', key).update(data).digest('hex');
+}
+
+/**
+ * Check if this installation has been registered with the server
+ */
+function isRegistered(): boolean {
+  return readConfig().registeredAt !== null;
+}
+
+/**
+ * Mark this installation as registered
+ */
+function markAsRegistered(): void {
+  const config = readConfig();
+  config.registeredAt = new Date().toISOString();
+  writeConfig(config);
 }
 
 // ============================================================================
@@ -213,23 +268,45 @@ function isCommandExcluded(command: string): boolean {
 }
 
 /**
- * Transmit event to analytics server (fire-and-forget)
+ * Transmit event to analytics server with HMAC signature (fire-and-forget)
  */
 async function transmitEvent(event: AnalyticsEvent): Promise<void> {
   try {
+    const config = readConfig();
+    const installationId = config.installationId!;
+    const secretKey = config.secretKey!;
+    const isFirstRequest = !config.registeredAt;
+
+    const body = JSON.stringify(event);
+    const signature = signData(body, secretKey);
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Installation-Id': installationId,
+      'X-Signature': signature,
+    };
+
+    // On first request, send the secret key so server can store it
+    if (isFirstRequest) {
+      headers['X-Secret-Key'] = secretKey;
+    }
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), TRANSMISSION_TIMEOUT);
 
-    await fetch(ANALYTICS_ENDPOINT, {
+    const response = await fetch(ANALYTICS_ENDPOINT, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(event),
+      headers,
+      body,
       signal: controller.signal,
     });
 
     clearTimeout(timeoutId);
+
+    // If successful and this was first request, mark as registered
+    if (response.ok && isFirstRequest) {
+      markAsRegistered();
+    }
   } catch {
     // Silently ignore transmission errors - never block CLI
   }
@@ -301,12 +378,14 @@ export function clearEvents(): void {
 }
 
 /**
- * Reset analytics: clear events and regenerate installationId
+ * Reset analytics: clear events and regenerate installationId + secretKey
  */
 export function resetAnalytics(): void {
   clearEvents();
   const config = readConfig();
   config.installationId = generateInstallationId();
+  config.secretKey = generateSecretKey();
+  delete config.registeredAt; // Will need to re-register
   config.analytics.enabled = false;
   writeConfig(config);
 }
@@ -348,6 +427,29 @@ export function finishTracking(success: boolean, errorCategory?: ErrorCategory):
 
   commandStartTime = null;
   currentCommandName = null;
+}
+
+// ============================================================================
+// Dashboard URL Generation
+// ============================================================================
+
+/**
+ * Generate a signed dashboard URL for viewing personal analytics
+ * URL expires in 1 hour
+ */
+export function getDashboardUrl(): string {
+  const config = readConfig();
+  const installationId = config.installationId!;
+  const secretKey = config.secretKey!;
+
+  // Expire in 1 hour
+  const expiration = Math.floor(Date.now() / 1000) + 3600;
+
+  // Sign: installationId:expiration
+  const payload = `${installationId}:${expiration}`;
+  const signature = signData(payload, secretKey);
+
+  return `${ANALYTICS_BASE_URL}/dashboard/${installationId}?exp=${expiration}&sig=${signature}`;
 }
 
 // ============================================================================

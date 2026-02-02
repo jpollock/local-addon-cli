@@ -3,6 +3,7 @@ main = "src/index.ts"
 compatibility_date = "2024-01-01"
 
 [[d1_databases]]
-binding = "DB"
+binding = "lwp_analytics"
 database_name = "lwp-analytics"
-database_id = "placeholder-will-be-set-after-creation"
+database_id = "c3633feb-70a4-4827-80d2-b14ebf84e3dd"
+
