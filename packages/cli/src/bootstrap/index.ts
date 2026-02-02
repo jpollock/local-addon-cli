@@ -395,9 +395,44 @@ export async function ensureAddon(
 
   // Check if addon is activated
   if (!isAddonActivated()) {
-    log('Activating addon...');
-    const needsRestart = activateAddon();
-    return { success: true, needsRestart };
+    const running = await isLocalRunning();
+
+    if (running) {
+      // Local is running - it controls enabled-addons.json
+      // We can't activate by modifying the file while Local runs
+      // Try stopping Local first, then activating, then starting
+      if (process.platform === 'linux' && !hasDisplay()) {
+        // SSH session - can't restart Local
+        console.error('');
+        console.error('The CLI addon is installed but needs to be activated.');
+        console.error('');
+        console.error('Please activate from Local desktop app:');
+        console.error('  1. Open Local');
+        console.error('  2. Go to Addons');
+        console.error('  3. Enable "@local-labs-jpollock/local-addon-cli"');
+        console.error('');
+        console.error('Or restart Local from the desktop to auto-activate.');
+        console.error('');
+        // Try to continue anyway - maybe it works
+        return { success: true, needsRestart: false };
+      }
+
+      log('Stopping Local to activate addon...');
+      await stopLocal();
+
+      // Wait a moment for Local to fully stop
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      log('Activating addon...');
+      activateAddon();
+
+      return { success: true, needsRestart: true };
+    } else {
+      // Local not running - safe to modify enabled-addons.json
+      log('Activating addon...');
+      const needsRestart = activateAddon();
+      return { success: true, needsRestart };
+    }
   }
 
   return { success: true, needsRestart: false };
