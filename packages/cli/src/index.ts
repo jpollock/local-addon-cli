@@ -1767,9 +1767,9 @@ analyticsCmd
 analyticsCmd
   .command('show')
   .description('View your analytics data')
-  .option('--json', 'Output as JSON')
-  .action((options) => {
-    if (options.json) {
+  .action(() => {
+    const globalOpts = program.opts() as FormatterOptions;
+    if (globalOpts.json) {
       const events = analytics.readEvents();
       console.log(JSON.stringify(events, null, 2));
     } else {

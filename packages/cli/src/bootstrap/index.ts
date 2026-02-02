@@ -342,16 +342,8 @@ export async function installAddon(
       log('Installing bundled addon...');
 
       // Copy bundled addon to Local's addons directory
+      // Dependencies are pre-installed in addon-dist, no npm install needed
       copyDirSync(bundledAddonPath, addonPath);
-
-      // Install addon dependencies
-      log('Installing addon dependencies...');
-      try {
-        await execAsync('npm install --production --silent', { cwd: addonPath });
-      } catch (npmError: unknown) {
-        const message = npmError instanceof Error ? npmError.message : String(npmError);
-        console.error(`Warning: Failed to install addon dependencies: ${message}`);
-      }
 
       log('Addon installed successfully.');
     } else {

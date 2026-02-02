@@ -3,11 +3,12 @@
  * Bundle Addon Script
  *
  * Copies the built addon into the CLI package so it can be
- * distributed as a single npm package.
+ * distributed as a single npm package with pre-installed dependencies.
  */
 
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 const ADDON_SRC = path.join(__dirname, '..', 'packages', 'addon');
 const ADDON_DEST = path.join(__dirname, '..', 'packages', 'cli', 'addon-dist');
@@ -55,11 +56,13 @@ function bundle() {
   console.log('  Copying lib/...');
   copyDir(addonLib, path.join(ADDON_DEST, 'lib'));
 
-  // Copy package.json
-  console.log('  Copying package.json...');
-  fs.copyFileSync(
-    path.join(ADDON_SRC, 'package.json'),
-    path.join(ADDON_DEST, 'package.json')
+  // Copy package.json (without devDependencies for production bundle)
+  console.log('  Copying package.json (stripped for production)...');
+  const pkgJson = JSON.parse(fs.readFileSync(path.join(ADDON_SRC, 'package.json'), 'utf8'));
+  delete pkgJson.devDependencies;
+  fs.writeFileSync(
+    path.join(ADDON_DEST, 'package.json'),
+    JSON.stringify(pkgJson, null, 2) + '\n'
   );
 
   // Copy bin/ if exists
@@ -69,7 +72,11 @@ function bundle() {
     copyDir(addonBin, path.join(ADDON_DEST, 'bin'));
   }
 
-  console.log('Addon bundled successfully.');
+  // Pre-install dependencies so they're bundled with the package
+  console.log('  Installing production dependencies...');
+  execSync('npm install --omit=dev', { cwd: ADDON_DEST, stdio: 'inherit' });
+
+  console.log('Addon bundled successfully with dependencies.');
 }
 
 bundle();
