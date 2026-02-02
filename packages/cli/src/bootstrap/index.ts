@@ -13,7 +13,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { exec, execSync } from 'child_process';
 import { promisify } from 'util';
-import { getLocalPaths, LocalPaths } from './paths';
+import { getLocalPaths, LocalPaths, ensureLocalExecutable } from './paths';
 
 const execAsync = promisify(exec);
 
@@ -95,7 +95,14 @@ export async function startLocal(): Promise<void> {
       // /MIN = start minimized
       await execAsync(`start /MIN "" "${paths.appExecutable}"`);
     } else {
-      await execAsync(`${paths.appExecutable} &`);
+      // Linux: ensure we have a valid executable path
+      const executable = await ensureLocalExecutable();
+      if (!executable) {
+        console.error('Cannot start Local: executable not found');
+        console.error('Download Local from: https://localwp.com');
+        return;
+      }
+      await execAsync(`${executable} &`);
     }
   } catch {
     // Ignore errors - Local might already be running

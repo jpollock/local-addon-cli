@@ -100,7 +100,8 @@ describe('bootstrap', () => {
       mockFs.existsSync.mockReturnValue(true);
 
       expect(isLocalInstalled()).toBe(true);
-      expect(mockFs.existsSync).toHaveBeenCalledWith('/opt/Local/local');
+      // Checks config first, then common locations starting with /usr/bin/Local
+      expect(mockFs.existsSync).toHaveBeenCalledWith('/usr/bin/Local');
     });
 
     it('returns false on error', () => {
@@ -232,9 +233,12 @@ describe('bootstrap', () => {
         writable: true,
         configurable: true,
       });
+      // Mock no executables found so it falls back to default
+      mockFs.existsSync.mockReturnValue(false);
 
       const paths = getLocalPaths();
 
+      // Falls back to /opt/Local/local when no paths found
       expect(paths.appExecutable).toBe('/opt/Local/local');
       expect(paths.appName).toBe('local');
       expect(paths.dataDir).toContain('.config/Local');
