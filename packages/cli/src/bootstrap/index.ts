@@ -63,15 +63,27 @@ export async function isLocalRunning(): Promise<boolean> {
   try {
     if (process.platform === 'darwin') {
       // Use pgrep with -f to match any process containing "Local"
-      // Also check if GraphQL connection info exists and is recent
       const { stdout } = await execAsync(`pgrep -f "Local.app"`);
       return stdout.trim().length > 0;
     } else if (process.platform === 'win32') {
       const { stdout } = await execAsync(`tasklist /FI "IMAGENAME eq Local.exe"`);
       return stdout.includes('Local.exe');
     } else {
-      const { stdout } = await execAsync(`pgrep -f "local"`);
-      return stdout.trim().length > 0;
+      // Linux: check for Local (case-insensitive) or check connection info
+      try {
+        const { stdout } = await execAsync(`pgrep -fi "local"`);
+        return stdout.trim().length > 0;
+      } catch {
+        // pgrep -i might not be supported, try both cases
+        try {
+          const { stdout: stdout1 } = await execAsync(`pgrep -f "Local"`);
+          if (stdout1.trim().length > 0) return true;
+        } catch {
+          // Continue to lowercase check
+        }
+        const { stdout: stdout2 } = await execAsync(`pgrep -f "local"`);
+        return stdout2.trim().length > 0;
+      }
     }
   } catch {
     // pgrep returns non-zero if no processes found
@@ -79,6 +91,17 @@ export async function isLocalRunning(): Promise<boolean> {
     const connectionInfo = readConnectionInfo();
     return connectionInfo !== null;
   }
+}
+
+/**
+ * Check if we can start GUI apps (have a display)
+ */
+function hasDisplay(): boolean {
+  if (process.platform === 'darwin' || process.platform === 'win32') {
+    return true;
+  }
+  // Linux: check for DISPLAY or WAYLAND_DISPLAY
+  return !!(process.env.DISPLAY || process.env.WAYLAND_DISPLAY);
 }
 
 /**
@@ -95,6 +118,12 @@ export async function startLocal(): Promise<void> {
       // /MIN = start minimized
       await execAsync(`start /MIN "" "${paths.appExecutable}"`);
     } else {
+      // Linux: check for display (SSH sessions won't have one)
+      if (!hasDisplay()) {
+        console.error('Cannot start Local: no display available (SSH session?)');
+        console.error('Please start Local from the desktop before connecting via SSH.');
+        return;
+      }
       // Linux: ensure we have a valid executable path
       const executable = await ensureLocalExecutable();
       if (!executable) {
