@@ -148,7 +148,8 @@ export async function stopLocal(): Promise<void> {
     } else if (process.platform === 'win32') {
       await execAsync(`taskkill /IM Local.exe /F`);
     } else {
-      await execAsync(`pkill -f local`);
+      // Use -i for case-insensitive match (Local or local)
+      await execAsync(`pkill -fi "local"`);
     }
   } catch {
     // Ignore errors - Local might not be running
