@@ -68,6 +68,7 @@
     "category": "developer-tools"
   },
   "dependencies": {
+    "graphql-tag": "^2.12.6",
     "node-stream-zip": "^1.15.0"
   }
 }

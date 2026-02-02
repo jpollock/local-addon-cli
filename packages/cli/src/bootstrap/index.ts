@@ -344,6 +344,15 @@ export async function installAddon(
       // Copy bundled addon to Local's addons directory
       copyDirSync(bundledAddonPath, addonPath);
 
+      // Install addon dependencies
+      log('Installing addon dependencies...');
+      try {
+        await execAsync('npm install --production --silent', { cwd: addonPath });
+      } catch (npmError: unknown) {
+        const message = npmError instanceof Error ? npmError.message : String(npmError);
+        console.error(`Warning: Failed to install addon dependencies: ${message}`);
+      }
+
       log('Addon installed successfully.');
     } else {
       // Try development mode - create symlink to local addon in monorepo
