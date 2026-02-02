@@ -24,6 +24,7 @@ import {
   FormatterOptions,
 } from './formatters';
 import * as analytics from './analytics';
+import { getSiteSize } from './utils/siteSize';
 
 // Package info
 const PACKAGE_NAME = '@local-labs-jpollock/local-cli';
@@ -267,6 +268,7 @@ sites
   .command('list')
   .description('List all WordPress sites')
   .option('--status <status>', 'Filter by status (running|stopped|all)', 'all')
+  .option('-s, --size', 'Show disk size for each site')
   .action(async (cmdOptions) => {
     const globalOpts = program.opts() as FormatterOptions;
     const format = getOutputFormat(globalOpts);
@@ -287,20 +289,39 @@ sites
         }
       `);
 
-      let sitesToShow = data.sites.map((s) => ({
-        id: s.id,
-        name: s.name,
-        domain: s.domain,
-        status: s.status.toLowerCase(),
-        path: s.path,
-      }));
+      let sitesToShow = data.sites.map((s) => {
+        const base = {
+          id: s.id,
+          name: s.name,
+          domain: s.domain,
+          status: s.status.toLowerCase(),
+          path: s.path,
+        };
+
+        // Calculate size if requested
+        if (cmdOptions.size) {
+          const sizeResult = getSiteSize(s);
+          return {
+            ...base,
+            size: sizeResult.formatted,
+            sizeBytes: sizeResult.bytes,
+          };
+        }
+
+        return base;
+      });
 
       // Filter by status if specified
       if (cmdOptions.status !== 'all') {
         sitesToShow = sitesToShow.filter((s) => s.status === cmdOptions.status);
       }
 
-      console.log(formatSiteList(sitesToShow, format, { noColor: globalOpts.noColor }));
+      console.log(
+        formatSiteList(sitesToShow, format, {
+          noColor: globalOpts.noColor,
+          showSize: cmdOptions.size,
+        })
+      );
     } catch (error: any) {
       console.error(formatError(error.message));
       process.exit(1);

@@ -124,15 +124,29 @@ export interface SiteInfo {
   domain: string;
   status: string;
   path?: string;
+  size?: string;
+  sizeBytes?: number;
 }
 
 export function formatSiteList(
   sites: SiteInfo[],
   format: OutputFormat,
-  options: { noColor?: boolean } = {}
+  options: { noColor?: boolean; showSize?: boolean } = {}
 ): string {
+  const hasSize = options.showSize && sites.some((s) => s.size);
+
   switch (format) {
     case 'json':
+      // Include size fields in JSON when showSize is true
+      if (hasSize) {
+        return formatJson(
+          sites.map((s) => ({
+            ...s,
+            size: s.size,
+            sizeBytes: s.sizeBytes,
+          }))
+        );
+      }
       return formatJson(sites);
 
     case 'quiet':
@@ -144,12 +158,47 @@ export function formatSiteList(
         return 'No sites found.';
       }
 
+      if (hasSize) {
+        // Calculate total size
+        const totalBytes = sites.reduce((acc, s) => acc + (s.sizeBytes || 0), 0);
+        const totalFormatted = formatBytesSimple(totalBytes);
+
+        const table = formatTable(
+          ['Name', 'Domain', 'Status', 'Size'],
+          sites.map((s) => [
+            s.name,
+            s.domain,
+            formatStatus(s.status, options),
+            s.size || '?',
+          ]),
+          options
+        );
+
+        return `${table}\n\nTotal: ${sites.length} site(s), ${totalFormatted}`;
+      }
+
       return formatTable(
         ['Name', 'Domain', 'Status'],
         sites.map((s) => [s.name, s.domain, formatStatus(s.status, options)]),
         options
       );
   }
+}
+
+/**
+ * Simple byte formatter for totals
+ */
+function formatBytesSimple(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '?';
+  if (bytes === 0) return '0 B';
+
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const k = 1024;
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const value = bytes / Math.pow(k, i);
+  const precision = i >= 3 ? 2 : i >= 2 ? 1 : 0;
+
+  return `${value.toFixed(precision)} ${units[i]}`;
 }
 
 /**
