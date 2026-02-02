@@ -521,8 +521,18 @@ export async function bootstrap(
   const running = await isLocalRunning();
 
   if (needsRestart && running) {
-    log('Restarting Local to activate addon...');
-    await restartLocal();
+    // Check if we can restart (need display on Linux)
+    if (process.platform === 'linux' && !hasDisplay()) {
+      log('Addon installed but requires Local restart to activate.');
+      console.error('');
+      console.error('Please restart Local from the desktop to activate the addon.');
+      console.error('Then run this command again.');
+      console.error('');
+      // Try to continue anyway - addon might already be active
+    } else {
+      log('Restarting Local to activate addon...');
+      await restartLocal();
+    }
   } else if (!running) {
     log('Starting Local...');
     await startLocal();
