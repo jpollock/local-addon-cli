@@ -247,8 +247,19 @@ export function activateAddon(): boolean {
     enabledAddons[ADDON_ENABLED_KEY] = true;
     fs.writeFileSync(paths.enabledAddonsFile, JSON.stringify(enabledAddons, null, 2));
 
+    // Verify write succeeded
+    const verifyContent = fs.readFileSync(paths.enabledAddonsFile, 'utf-8');
+    const verified = JSON.parse(verifyContent);
+    if (verified[ADDON_ENABLED_KEY] !== true) {
+      console.error('Warning: Failed to persist addon activation');
+      return false;
+    }
+
     return true; // Restart needed
-  } catch {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Failed to activate addon: ${message}`);
+    console.error(`File: ${paths.enabledAddonsFile}`);
     return false;
   }
 }
