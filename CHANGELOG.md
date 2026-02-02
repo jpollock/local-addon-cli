@@ -9,16 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Anonymous usage analytics with server transmission (Phase 2)
+- Anonymous usage analytics with signed authentication (Phase 3)
   - `lwp analytics status` - Show analytics status and installation ID
   - `lwp analytics on` - Enable analytics
   - `lwp analytics off` - Disable analytics
   - `lwp analytics show` - View usage summary (or `--json` for raw events)
-  - `lwp analytics reset` - Delete all data and regenerate installation ID
+  - `lwp analytics reset` - Delete all data and regenerate credentials
+  - `lwp analytics dashboard` - Open personal analytics dashboard (signed URL)
+- HMAC-SHA256 signed authentication for all analytics requests
+- Secret key generation (32 bytes) for request signing
+- Signed dashboard URLs with 1-hour expiration
 - Installation ID for anonymous tracking (random UUID, no PII)
 - Session ID to correlate commands within a CLI session
 - Extended event format: cli_version, os, node_version, error_category
 - Server transmission to Cloudflare Workers + D1 backend
+- Protected /v1/stats endpoint with ADMIN_TOKEN
 - First-run opt-in prompt (defaults to opt-out in non-interactive mode)
 - Auto-disable analytics in CI environments
 - Command exclusions for sensitive commands (wpe.*, analytics.*)
