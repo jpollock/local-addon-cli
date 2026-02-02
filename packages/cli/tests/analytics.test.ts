@@ -1,7 +1,7 @@
 /**
  * Analytics Module Tests
  *
- * Tests for the anonymous usage analytics module (Phase 2).
+ * Tests for the anonymous usage analytics module (Phase 3).
  */
 
 import * as fs from 'fs';
@@ -234,6 +234,50 @@ describe('analytics', () => {
     });
   });
 
+  describe('getSecretKey', () => {
+    it('returns secretKey from config', () => {
+      mockFs.existsSync.mockReturnValue(true);
+      mockFs.readFileSync.mockReturnValue(
+        JSON.stringify({
+          installationId: 'test-id',
+          secretKey: 'dGVzdC1zZWNyZXQta2V5LWJhc2U2NA==',
+          analytics: { enabled: true, promptedAt: '2025-01-31T00:00:00Z' },
+        })
+      );
+
+      expect(analytics.getSecretKey()).toBe('dGVzdC1zZWNyZXQta2V5LWJhc2U2NA==');
+    });
+
+    it('generates new secretKey when missing', () => {
+      mockFs.existsSync.mockReturnValue(false);
+
+      const key = analytics.getSecretKey();
+
+      // Should be a base64 string (generated from randomBytes)
+      expect(key).toBeDefined();
+      expect(typeof key).toBe('string');
+    });
+  });
+
+  describe('getDashboardUrl', () => {
+    it('generates signed dashboard URL with expiration', () => {
+      mockFs.existsSync.mockReturnValue(true);
+      mockFs.readFileSync.mockReturnValue(
+        JSON.stringify({
+          installationId: 'test-install-id',
+          secretKey: 'dGVzdC1zZWNyZXQta2V5LWJhc2U2NA==',
+          analytics: { enabled: true, promptedAt: '2025-01-31T00:00:00Z' },
+        })
+      );
+
+      const url = analytics.getDashboardUrl();
+
+      expect(url).toContain('/dashboard/test-install-id');
+      expect(url).toContain('exp=');
+      expect(url).toContain('sig=');
+    });
+  });
+
   describe('readEvents', () => {
     it('returns empty array when events file does not exist', () => {
       mockFs.existsSync.mockReturnValue(false);
@@ -284,7 +328,7 @@ describe('analytics', () => {
   });
 
   describe('resetAnalytics', () => {
-    it('clears events and regenerates installationId', () => {
+    it('clears events and regenerates installationId and secretKey', () => {
       mockFs.existsSync.mockImplementation((p) => {
         if (p === configPath) return true;
         if (p === eventsPath) return true;
@@ -293,6 +337,8 @@ describe('analytics', () => {
       mockFs.readFileSync.mockReturnValue(
         JSON.stringify({
           installationId: 'old-id',
+          secretKey: 'old-secret-key',
+          registeredAt: '2025-01-31T00:00:00Z',
           analytics: { enabled: true, promptedAt: '2025-01-31T00:00:00Z' },
         })
       );
@@ -307,11 +353,14 @@ describe('analytics', () => {
       // Should delete events
       expect(mockFs.unlinkSync).toHaveBeenCalledWith(eventsPath);
 
-      // Should write new config with new installationId
+      // Should write new config with new installationId and secretKey
       expect(mockFs.writeFileSync).toHaveBeenCalled();
       const writtenContent = mockFs.writeFileSync.mock.calls[0][1] as string;
       const parsed = JSON.parse(writtenContent);
       expect(parsed.installationId).toBe('mock-uuid-1234');
+      expect(parsed.secretKey).toBeDefined();
+      expect(parsed.secretKey).not.toBe('old-secret-key');
+      expect(parsed.registeredAt).toBeUndefined();
       expect(parsed.analytics.enabled).toBe(false);
     });
   });
@@ -487,7 +536,7 @@ describe('analytics', () => {
       expect(mockFs.appendFileSync).not.toHaveBeenCalled();
     });
 
-    it('transmits event to server', async () => {
+    it('transmits event to server with HMAC signature', async () => {
       // Set up fetch mock
       const mockFetch = jest.fn().mockResolvedValue({ ok: true });
       global.fetch = mockFetch;
@@ -499,6 +548,77 @@ describe('analytics', () => {
       mockFs.readFileSync.mockReturnValue(
         JSON.stringify({
           installationId: 'test-install-id',
+          secretKey: 'dGVzdC1zZWNyZXQta2V5LWJhc2U2NA==',
+          analytics: { enabled: true, promptedAt: '2025-01-31T00:00:00Z' },
+        })
+      );
+      mockFs.mkdirSync.mockImplementation(() => undefined);
+      mockFs.appendFileSync.mockImplementation(() => {});
+      mockFs.chmodSync.mockImplementation(() => {});
+      mockFs.writeFileSync.mockImplementation(() => {});
+      mockFs.renameSync.mockImplementation(() => {});
+
+      analytics.startTracking('sites.list');
+      analytics.finishTracking(true);
+
+      // Wait for the fire-and-forget fetch to be called
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // Verify fetch was called with HMAC headers
+      expect(mockFetch).toHaveBeenCalled();
+      const fetchCall = mockFetch.mock.calls[0];
+      expect(fetchCall[0]).toContain('/v1/events');
+      expect(fetchCall[1].method).toBe('POST');
+      expect(fetchCall[1].headers['X-Installation-Id']).toBe('test-install-id');
+      expect(fetchCall[1].headers['X-Signature']).toBeDefined();
+    });
+
+    it('sends X-Secret-Key header on first request (not registered)', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({ ok: true });
+      global.fetch = mockFetch;
+
+      mockFs.existsSync.mockImplementation((p) => {
+        if (p === configPath) return true;
+        return false;
+      });
+      // No registeredAt means first request
+      mockFs.readFileSync.mockReturnValue(
+        JSON.stringify({
+          installationId: 'new-install-id',
+          secretKey: 'bmV3LXNlY3JldC1rZXk=',
+          analytics: { enabled: true, promptedAt: '2025-01-31T00:00:00Z' },
+        })
+      );
+      mockFs.mkdirSync.mockImplementation(() => undefined);
+      mockFs.appendFileSync.mockImplementation(() => {});
+      mockFs.chmodSync.mockImplementation(() => {});
+      mockFs.writeFileSync.mockImplementation(() => {});
+      mockFs.renameSync.mockImplementation(() => {});
+
+      analytics.startTracking('sites.list');
+      analytics.finishTracking(true);
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(mockFetch).toHaveBeenCalled();
+      const fetchCall = mockFetch.mock.calls[0];
+      expect(fetchCall[1].headers['X-Secret-Key']).toBe('bmV3LXNlY3JldC1rZXk=');
+    });
+
+    it('does not send X-Secret-Key header when already registered', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({ ok: true });
+      global.fetch = mockFetch;
+
+      mockFs.existsSync.mockImplementation((p) => {
+        if (p === configPath) return true;
+        return false;
+      });
+      // Has registeredAt means already registered
+      mockFs.readFileSync.mockReturnValue(
+        JSON.stringify({
+          installationId: 'registered-install-id',
+          secretKey: 'cmVnaXN0ZXJlZC1rZXk=',
+          registeredAt: '2025-01-31T00:00:00Z',
           analytics: { enabled: true, promptedAt: '2025-01-31T00:00:00Z' },
         })
       );
@@ -509,14 +629,11 @@ describe('analytics', () => {
       analytics.startTracking('sites.list');
       analytics.finishTracking(true);
 
-      // Wait for the fire-and-forget fetch to be called
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      // Verify fetch was called (fire-and-forget)
       expect(mockFetch).toHaveBeenCalled();
       const fetchCall = mockFetch.mock.calls[0];
-      expect(fetchCall[0]).toContain('/v1/events');
-      expect(fetchCall[1].method).toBe('POST');
+      expect(fetchCall[1].headers['X-Secret-Key']).toBeUndefined();
     });
   });
 });
