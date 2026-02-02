@@ -212,13 +212,6 @@ function signData(data: string, secretKey: string): string {
 }
 
 /**
- * Check if this installation has been registered with the server
- */
-function isRegistered(): boolean {
-  return readConfig().registeredAt !== null;
-}
-
-/**
  * Mark this installation as registered
  */
 function markAsRegistered(): void {
