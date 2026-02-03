@@ -475,6 +475,9 @@ sites
       if (cmdOptions.wpUser) input.wpAdminUsername = cmdOptions.wpUser;
       if (cmdOptions.wpEmail) input.wpAdminEmail = cmdOptions.wpEmail;
 
+      // Use longer timeout for site creation (5 minutes for blueprints)
+      const createTimeout = cmdOptions.blueprint ? 300000 : 120000;
+
       const data = await gql.mutate<{
         createSite: { success: boolean; siteId: string; siteName: string; error: string | null };
       }>(
@@ -483,7 +486,8 @@ sites
           createSite(input: $input) { success siteId siteName error }
         }
       `,
-        { input }
+        { input },
+        { timeout: createTimeout }
       );
 
       if (!data.createSite.success) {

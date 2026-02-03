@@ -41,9 +41,14 @@ export class GraphQLClient {
   /**
    * Execute a GraphQL query or mutation
    */
-  async query<T = unknown>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
+  async query<T = unknown>(
+    query: string,
+    variables: Record<string, unknown> = {},
+    options: { timeout?: number } = {}
+  ): Promise<T> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+    const timeout = options.timeout || this.timeout;
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     try {
       const response = await fetch(this.url, {
@@ -91,7 +96,11 @@ export class GraphQLClient {
   /**
    * Execute a mutation (alias for query, for clarity)
    */
-  async mutate<T = unknown>(mutation: string, variables: Record<string, unknown> = {}): Promise<T> {
-    return this.query<T>(mutation, variables);
+  async mutate<T = unknown>(
+    mutation: string,
+    variables: Record<string, unknown> = {},
+    options: { timeout?: number } = {}
+  ): Promise<T> {
+    return this.query<T>(mutation, variables, options);
   }
 }
