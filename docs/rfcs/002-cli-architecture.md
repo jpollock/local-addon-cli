@@ -5,9 +5,10 @@ title: RFC-002 CLI for Local
 
 # RFC-002: Command Line Interface for Local
 
-**Status:** Draft
+**Status:** Implemented
 **Author:** Jeremy Pollock
 **Created:** 2026-01-30
+**Implemented:** 2026-02-02
 **Related:** RFC-001-MCP-Server
 
 ## Summary

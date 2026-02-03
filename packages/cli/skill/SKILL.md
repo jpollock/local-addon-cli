@@ -19,6 +19,8 @@ The `lwp` command manages WordPress sites in [Local](https://localwp.com), a loc
 
 ```bash
 lwp sites list                    # List all sites
+lwp sites list --size             # Include disk usage
+lwp sites list --status running   # Filter by status
 lwp sites list --json             # JSON output for parsing
 lwp sites get <site>              # Get site details
 lwp sites start <site>            # Start a site

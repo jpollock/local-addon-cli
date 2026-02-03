@@ -59,13 +59,17 @@ No additional configuration is required.
 lwp sites list [options]
 
 Options:
-  --json      Output as JSON
-  --quiet     Output site names only
+  --status <status>  Filter by status (running|stopped|all)
+  -s, --size         Show disk size for each site
+  --json             Output as JSON
+  --quiet            Output site names only
 ```
 
 **Examples:**
 ```bash
 lwp sites list                    # Table format
+lwp sites list --size             # Include disk usage
+lwp sites list --status running   # Only running sites
 lwp sites list --json             # JSON format
 lwp sites list --quiet            # Just names
 ```
@@ -525,6 +529,48 @@ lwp services info <service>
 
 Arguments:
   service     Service name (php|mysql|nginx)
+```
+
+## System Commands
+
+### Update CLI
+
+```bash
+lwp update [options]
+
+Options:
+  -c, --check     Check for updates without installing
+```
+
+**Example:**
+```bash
+lwp update              # Update to latest version
+lwp update --check      # Just check for updates
+```
+
+### Analytics
+
+Manage anonymous usage analytics.
+
+```bash
+lwp analytics show      # Show analytics status
+lwp analytics enable    # Enable analytics
+lwp analytics disable   # Disable analytics
+lwp analytics reset     # Reset installation ID
+```
+
+### Claude Code Skill
+
+Install the lwp skill for AI assistant integration.
+
+```bash
+lwp skill install       # Install skill to ~/.claude/skills/
+```
+
+### Local Info
+
+```bash
+lwp info                # Show Local app info
 ```
 
 ## Global Options

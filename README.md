@@ -84,6 +84,8 @@ lwp wpe push my-blog
 | Command | Description |
 |---------|-------------|
 | `lwp sites list` | List all sites |
+| `lwp sites list --size` | List with disk usage |
+| `lwp sites list --status running` | Filter by status |
 | `lwp sites get <site>` | Get site details |
 | `lwp sites start <site>` | Start a site |
 | `lwp sites stop <site>` | Stop a site |
@@ -155,7 +157,15 @@ lwp wp my-blog user list --format=json
 | Command | Description |
 |---------|-------------|
 | `lwp services list` | List available services |
-| `lwp services info <service>` | Get service details |
+
+### System
+
+| Command | Description |
+|---------|-------------|
+| `lwp info` | Show Local app info |
+| `lwp update` | Update CLI to latest version |
+| `lwp analytics show` | Show analytics status |
+| `lwp skill install` | Install Claude Code skill |
 
 ## Global Options
 

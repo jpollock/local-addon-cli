@@ -1,5 +1,7 @@
 # Execution Plan: Local CLI & MCP
 
+> **Status: COMPLETE** - All phases implemented. See [RFC-002](docs/rfcs/002-cli-architecture.md) for final architecture.
+
 Implementation plan for RFC-002, building the `lwp` CLI alongside the MCP Server addon.
 
 ## Overview

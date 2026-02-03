@@ -49,6 +49,8 @@ lwp <command-group> <action> [arguments] [options]
 | `wpe` | WP Engine synchronization |
 | `blueprints` | Site templates |
 | `services` | Lightning Services info |
+| `analytics` | Usage analytics |
+| `update` | CLI self-update |
 
 ## Common Workflows
 
@@ -290,6 +292,8 @@ lwp sites xdebug my-site --on
 ```bash
 # Site lifecycle
 lwp sites list                     # List all sites
+lwp sites list --size              # List with disk usage
+lwp sites list --status running    # Filter by status
 lwp sites create <name>            # Create site
 lwp sites start <site>             # Start site
 lwp sites stop <site>              # Stop site

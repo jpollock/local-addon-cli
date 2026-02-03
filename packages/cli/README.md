@@ -36,17 +36,18 @@ lwp wp my-site theme status
 ### Sites
 
 ```bash
-lwp sites list              # List all sites
-lwp sites list --size       # Include disk usage
-lwp sites list --status running  # Filter by status
-lwp sites get <site>        # Get site details
+lwp sites list                    # List all sites
+lwp sites list --size             # Include disk usage
+lwp sites list -s                 # Short form
+lwp sites list --status running   # Filter by status
+lwp sites get <site>              # Get site details
 lwp sites start <site>      # Start a site
 lwp sites stop <site>       # Stop a site
 lwp sites create <name>     # Create a new site
 lwp sites create <name> --blueprint <name>  # Create from blueprint
 lwp sites delete <site>     # Delete a site
 lwp sites open <site>       # Open site in browser
-lwp sites shell <site>      # Open site shell
+lwp sites open <site> --admin  # Open WP Admin
 ```
 
 ### WP-CLI
@@ -67,7 +68,7 @@ lwp wp my-site db export backup.sql
 
 ```bash
 lwp blueprints list         # List available blueprints
-lwp blueprints export <site> <name>  # Export site as blueprint
+lwp blueprints save <site> <name>  # Save site as blueprint
 ```
 
 ### Database
@@ -76,6 +77,15 @@ lwp blueprints export <site> <name>  # Export site as blueprint
 lwp db export <site>        # Export database
 lwp db import <site> <file> # Import database
 lwp db adminer <site>       # Open Adminer
+```
+
+### System
+
+```bash
+lwp info                    # Show Local app info
+lwp update                  # Update CLI to latest version
+lwp analytics show          # Show analytics status
+lwp skill install           # Install Claude Code skill
 ```
 
 ## Global Options
